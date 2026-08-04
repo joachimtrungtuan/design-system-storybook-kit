@@ -6,7 +6,7 @@ Rules marked **[V]** are machine-checked. Rules marked **[S]** are semantic — 
 
 ## Directory layout
 
-```
+```text
 project/
 ├── .designsystem/manifest.json      engine version + shipped-file checksums
 ├── .storybook/
@@ -85,7 +85,7 @@ Story files may group related components (`Cards.stories.tsx` covering all card 
 
 `tokens.json` top-level groups, following the reference project:
 
-```
+```text
 color.brand.*        named brand colours, each declared as a ramp (below)
 color.secondary.*    supporting palettes
 color.grey.*         neutral scale

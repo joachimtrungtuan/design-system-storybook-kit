@@ -1,12 +1,46 @@
-# @ds/cli
+# cli
+
+The `ds` command. Part of `story-cli-kit`, not separately installable — a git URL resolves the repository root, so this workspace package ships inside the one installed artifact (ADR-007).
 
 The `ds` command. A convenience over documented procedures — every operation must also be performable by hand from the docs (NFR2 in `docs/requirements.md`).
+
+## Install
+
+```bash
+npx github:joachimtrungtuan/story-cli-kit create my-project   # new project
+npx github:joachimtrungtuan/story-cli-kit adopt               # into an existing React app
+```
+
+Distributed from GitHub; no npm registry account involved. `create` and `adopt` are the only commands meant to run via `npx`. It adds the CLI to the new project, and everything afterwards runs from that local install. Running `validate` / `update` / `migrate` through `npx` would point the latest CLI at an older project engine — see ADR-007. The CLI detects that case and redirects rather than proceeding.
+
+Cloning the repo is the contributor path for developing the toolkit, not a user install path.
+
+## What `create` produces
+
+A complete, runnable project — not a Storybook layer to attach to something you build first. The React source, the Vite setup and Tailwind v4 are all generated here; there is no prior "create a Vite app" step.
+
+- React + Vite + TypeScript application, runnable
+- Tailwind v4, CSS-first, wired to the generated `tokens.css`
+- Storybook, configured through the engine preset
+- The tier taxonomy, neutral tokens, foundations docs, example component per tier
+- `.designsystem/manifest.json`
+- Dependencies installed, and a validator that passes on first run
+
+Two commands work immediately afterwards: one to run the app, one to run Storybook.
+
+## What `create` does to the environment
+
+- **Detects the package manager** (npm, pnpm or yarn) and generates for that one. It never installs a package manager (ADR-008).
+- **Runs `git init` and commits the scaffold**, so reversibility holds from the first minute (ADR-009).
+- **Prompts for everything, requires no flag.** Every flag overrides a prompt; none is a prerequisite.
+- **Reports missing prerequisites as instructions** — what is wrong, what to do, where to get it (NFR5).
 
 ## Commands
 
 | Command | Does |
 | --- | --- |
 | `ds create <name>` | scaffold a new project from a template; write `.designsystem/manifest.json` |
+| `ds adopt [--dry-run]` | merge into an existing React app; classify every write, never overwrite silently (ADR-013) |
 | `ds validate` | run every `[V]` contract rule; non-zero exit on violation |
 | `ds generate <tier> <name>` | scaffold a component + its story at the correct paths |
 | `ds update [--to <v>] [--on-conflict=skip\|migrate] [--dry-run]` | move a project to a newer engine version |

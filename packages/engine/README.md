@@ -1,4 +1,6 @@
-# @ds/engine
+# engine
+
+The updatable surface. Part of `story-cli-kit`, not separately installable — a git URL resolves the repository root, so this workspace package ships inside the one installed artifact (ADR-007).
 
 The updatable surface. Ships into generated projects as a versioned dependency and is never edited there.
 

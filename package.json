@@ -1,0 +1,6 @@
+{
+  "name": "design-system-storybook",
+  "private": true,
+  "type": "module",
+  "description": "Toolkit for generating and maintaining consistent Storybook design-system projects"
+}

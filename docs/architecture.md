@@ -5,7 +5,7 @@
 This repo is the **toolkit**, not a generated project. Repo name and package name are both `story-cli-kit`; the binary it installs is `ds`. It is a pnpm workspace:
 
 ```text
-package.json              the single installable artifact — bin: ds, built bundle
+package.json              the single installable artifact — bin: ds, built by `prepare` on install
 packages/engine/          the updatable surface — a workspace package, not published alone
 packages/cli/             ds command — create / adopt / validate / update / migrate
 templates/storybook-vite/ the copied-at-init surface
@@ -14,7 +14,7 @@ plans/                    work plans and reports
 update-logs/              dated change log
 ```
 
-The workspace exists for development. What gets *installed* is the repo root, built into one bundle with the engine inlined — because git installs resolve the repository root and cannot address a subdirectory (ADR-007). Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact.
+The workspace exists for development. What gets *installed* is the repo root — because git installs resolve the repository root and cannot address a subdirectory (ADR-007) — shipped as TypeScript source and compiled by `prepare` at install time (ADR-012). Nothing generated is committed. Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact, and the CLI reaches the engine through a subpath import rather than a workspace link, which does not exist in an installed tarball.
 
 Generated projects are outputs of this repo. Nothing here ships inside them except that one dependency and the template contents (as copied files).
 
@@ -131,7 +131,7 @@ Verified against the npm registry and vendor documentation on **2026-08-04**. Re
 
 **Node: 24.12 or newer**, which is 24 LTS (active until 2028-04). Node 20 is end-of-life; Node 22 LTS is excluded deliberately.
 
-The dependency floor alone would allow 22.13 — the intersection of Vite (`^20.19 || >=22.12`) and ESLint (`^20.19 || ^22.13 || >=24`). The binding constraint is instead ADR-012: the toolkit runs its own TypeScript through Node's native type stripping, which reached stable in 24.12. Since the CLI is a devDependency of every generated project, this floor applies to generated projects too. NFR5 messages name "Node 24 LTS" — one version to install is a better instruction than a range.
+The dependency floor alone would allow 22.13 — the intersection of Vite (`^20.19 || >=22.12`) and ESLint (`^20.19 || ^22.13 || >=24`). 24.12 was originally binding because the toolkit ran its own TypeScript through Node's native type stripping; ADR-012's rewrite (2026-08-05) removed that constraint, since what ships is now compiled JavaScript. The floor is **retained at 24 LTS as a choice** — it was already the recommendation, the audience is the maintainer's own projects, and one version to install is a better NFR5 instruction than a range. It is now revisitable on its own merits rather than dictated by another decision.
 
 ## Decisions
 
@@ -229,17 +229,34 @@ Taking `latest` here would trade a build-speed win we do not need — these proj
 
 Revisit when TypeScript 7.1 ships the stable API and `typescript-eslint` widens its peer range. Both are observable conditions, so this is a dated decision rather than an indefinite one. Node, React, Vite, Tailwind and Storybook all sit on their genuine latest.
 
-### ADR-012 — The toolkit has no build step
+### ADR-012 — The toolkit builds at install time, through `prepare`
 
-`ds` runs its TypeScript sources directly. Node strips types natively — on by default since 22.18, stable since 24.12 — so `bin` points at a `.ts` entry and nothing is compiled, bundled or generated before it runs.
+*Rewritten 2026-08-05. The original decision — no build step at all, `bin` pointing at a `.ts` entry run through Node's native type stripping — was refuted. What follows replaces it; the refutation is kept because the reasoning error is repeatable.*
 
-This is the option that satisfies every constraint at once rather than trading one for another. Git installs need something runnable at the repo root; committing a bundle would put build artifacts in git and contradict the standing "never commit `dist/`" rule; building through `prepare` on install would work but npm runs `prepare` silently in the background, so a first `npx` becomes a half-minute of apparent hang with no output — precisely the experience NFR5 exists to prevent, at the one moment a new user is deciding whether this tool works.
+**Why the original is impossible.** Node's own documentation, on the same page that carries the stability claim the decision was made from:
 
-Consequences, all accepted deliberately:
+> To discourage package authors from publishing packages written in TypeScript, Node.js refuses to handle TypeScript files inside folders under a `node_modules` path.
 
-- **Node floor rises to 24.12** and Node 22 LTS is excluded, despite being supported until 2027-04. This is the real cost. It is acceptable because 24 LTS was already the recommendation and the audience is the maintainer's own projects, not the public.
-- **Erasable syntax only.** No enums, runtime namespaces, parameter properties, import aliases or decorators in toolkit source. None are wanted in a CLI. `erasableSyntaxOnly: true` in `tsconfig.json` makes this a typecheck failure rather than a runtime surprise.
-- **Type checking is a separate step from running.** Node strips types without checking them, so `tsc --noEmit` is a real gate in its own right, not a formality that running the code would have caught.
+Type stripping is available for a project's *own* code and deliberately withheld from *installed packages*. No flag lifts it — `--no-strip-types` turns stripping off, not on. Every install path puts `bin.ts` under `node_modules`: the project devDependency directly, and `npx` by staging into `~/.npm/_npx/<hash>/node_modules/`. So the original ADR worked in a repo checkout and failed for every actual user, which is the worst possible shape for a defect. It is not a version gap and not a bug; it is policy, stable since 24.12.
+
+The error was reading the type-stripping documentation for the stability claim and stopping there. Two later spikes probed the *consequences* of having no build without re-checking the premise — a spike does not substitute for reading the source of the claim it rests on.
+
+**The decision.** `package.json` declares a `prepare` script that compiles the toolkit to JavaScript, and `bin` points at the compiled entry. npm installs the package's devDependencies and runs `prepare` before packing on **git installs** (ADR-007), so a `npx github:…` or a devDependency install gets built JavaScript without anything generated being committed.
+
+This reverses the original ADR's rejection of `prepare`, which was that npm runs it silently and a first `npx` becomes a half-minute of apparent hang. That objection was correct and still stands — it is now simply the least-bad option, because the alternative it was rejected *in favour of* does not exist. Weighed against:
+
+- **Committing the built JavaScript.** Fast installs, no hooks, but it contradicts the standing "never commit `dist/`" rule, puts generated files in every diff, and lets the shipped JS drift from the source it came from.
+- **Writing the shipped code in JavaScript with JSDoc types.** Satisfies the no-build goal literally. Rejected because the pain concentrates exactly where this codebase is most typed — the token schema, the manifest, and update classification all lean on generics that JSDoc expresses badly.
+- **Publishing to the npm registry.** Cleanest by a distance: build once at publish, ship JavaScript, no install hook, no artifacts in git. Rejected here only because it reverses ADR-007's "no npm account and none is required". ADR-007 already records that the same bundle publishes unchanged, so this stays the documented upgrade path if the install-time build proves as annoying in practice as it does on paper.
+
+Consequences, accepted deliberately:
+
+- **`--ignore-scripts` breaks the install.** The sharpest edge, and it is not hypothetical — `npm ci --ignore-scripts` is common corporate CI policy. `prepare` does not run, nothing is compiled, and `ds` is missing its entry point. The failure must be caught and explained rather than surfacing as a missing-file stack trace: if the compiled entry is absent, say that the install skipped build scripts and name the command that fixes it (NFR5).
+- **Every install pays for a build**, including each CI reinstall of every generated project. This is a recurring cost borne by users, not a one-time cost borne by the maintainer — the inverse of the usual arrangement, and the strongest argument for the registry path later.
+- **TypeScript is a real devDependency**, fetched at install time. Pinned per ADR-011.
+- **Erasable syntax only** — retained. No enums, runtime namespaces, parameter properties, import aliases or decorators in toolkit source. None are wanted in a CLI, and keeping `erasableSyntaxOnly: true` preserves the option of dropping the build if Node's restriction is ever relaxed.
+- **`tsc --noEmit` remains a distinct gate.** The build emits; it is not a substitute for checking, and CI runs both.
+- **The Node 24.12 floor is now a choice, not a constraint.** It was binding only because type stripping needed it. The dependency floor alone allows 22.13. Retained at 24 LTS because that was already the recommendation, but it is now revisitable without touching anything else.
 
 This applies to the toolkit only. Generated projects build normally through Vite.
 

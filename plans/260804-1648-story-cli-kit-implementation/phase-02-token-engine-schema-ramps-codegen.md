@@ -1,6 +1,6 @@
 ---
 title: "Phase 2: Token engine — schema, ramps, codegen"
-status: pending
+status: completed
 priority: P1
 effort: "2-3d"
 dependencies: [1]
@@ -69,15 +69,15 @@ The interesting case is a low anchor: a dark brand green anchors at 950, so ten 
 
 ## Success Criteria
 
-- [ ] Every fixture ramp reproduces `$base` exactly at its anchor step
-- [ ] Both fixture ramps — a dark base anchored at 950 and a mid base anchored at 500 — generate usable eleven-step scales from the same code path
-- [ ] Codegen output is byte-identical across two runs and across shuffled input ordering
-- [ ] A ramp missing `$mode` fails parse with an error naming the ramp
-- [ ] A ramp declaring every step literally is rejected (contract rule, not a warning)
-- [ ] A `color.semantic.*` entry holding a raw hex is rejected
-- [ ] A semantic reference cycle is reported, not stack-overflowed
-- [ ] `tokens.json` is never written to — assert no write path exists in the module graph
-- [ ] Out-of-gamut steps are reported by the API rather than silently clamped
+- [x] Every fixture ramp reproduces `$base` exactly at its anchor step
+- [x] Both fixture ramps — a dark base anchored at 950 and a mid base anchored at 500 — generate usable eleven-step scales from the same code path
+- [x] Codegen output is byte-identical across two runs and across shuffled input ordering
+- [x] A ramp missing `$mode` fails parse with an error naming the ramp
+- [x] A ramp declaring every step literally is rejected (contract rule, not a warning)
+- [x] A `color.semantic.*` entry holding a raw hex is rejected
+- [x] A semantic reference cycle is reported, not stack-overflowed
+- [x] `tokens.json` is never written to — assert no write path exists in the module graph
+- [x] Out-of-gamut steps are reported by the API rather than silently clamped
 
 ## Risk Assessment
 
@@ -85,4 +85,4 @@ The interesting case is a low anchor: a dark brand green anchors at 950, so ten 
 
 **Colour maths written by hand has subtle errors.** Round-trip tests catch conversion bugs; they do not catch a wrong lightness curve. Mitigate by generating a visual sheet of the fixture ramps once and looking at it — a one-off check, not a permanent artefact.
 
-**Contract silence on an override at the anchor step.** Cheap to hit, unclear to resolve. Do not guess: flag it to the maintainer if a fixture reaches it.
+**An override at the anchor step is contradictory.** The maintainer resolved the earlier contract gap: `$base` exclusively owns the anchor, so schema parsing rejects any `$overrides` entry targeting `$anchor`. Direct six-digit hex overrides remain valid at non-anchor steps inside `tokens.json` for exact ad-hoc shades.

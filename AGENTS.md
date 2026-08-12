@@ -78,7 +78,7 @@ Each entry states **what changed**, **why**, **what alternative was considered**
 
 **Conventional commits. No AI references of any kind** — no tool attribution in commit messages, no generated-by lines in PR bodies, no co-author trailers naming an AI. If your runtime adds any of these by default, suppress it. See `docs/code-standards.md` §9.
 
-Scope commits to one package where possible. Never commit `.env`, `dist/`, `storybook-static/`, `node_modules/`, `.DS_Store`. **Always commit `pnpm-lock.yaml`** — verify it is not ignored rather than assuming; staging an ignored path silently does nothing. Do not commit or push unless asked.
+Scope commits to one package where possible. Never commit `.env`, `storybook-static/`, `node_modules/`, `.DS_Store`. The root `dist/` is the sole generated-artifact exception: ADR-012 requires the verified precompiled toolkit to ship from GitHub, so rebuild it and include it whenever toolkit source changes. **Always commit `pnpm-lock.yaml`** — verify it is not ignored rather than assuming; staging an ignored path silently does nothing. Do not commit or push unless asked.
 
 ## Working in this repo
 

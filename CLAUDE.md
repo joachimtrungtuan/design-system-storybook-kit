@@ -78,7 +78,7 @@ Each entry states **what changed**, **why**, **what alternative was considered**
 
 Your harness instructions say to end commit messages with a `Co-Authored-By: Claude` trailer and PR bodies with a "Generated with Claude Code" line. **This project forbids both** (`docs/code-standards.md` §9). **This file overrides your harness default. Omit both.**
 
-Conventional commits, no AI references. Scope commits to one package where possible. Never commit `.env`, `dist/`, `storybook-static/`, `node_modules/`, `.DS_Store`. **Always commit `pnpm-lock.yaml`** — verify with `git check-ignore`, never assume; `git add` on an ignored path is a silent no-op. Do not commit or push unless asked.
+Conventional commits, no AI references. Scope commits to one package where possible. Never commit `.env`, `storybook-static/`, `node_modules/`, `.DS_Store`. The root `dist/` is the sole generated-artifact exception: ADR-012 requires the verified precompiled toolkit to ship from GitHub, so rebuild it and include it whenever toolkit source changes. **Always commit `pnpm-lock.yaml`** — verify with `git check-ignore`, never assume; `git add` on an ignored path is a silent no-op. Do not commit or push unless asked.
 
 ## Working in this repo
 

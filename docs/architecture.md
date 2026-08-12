@@ -5,8 +5,8 @@
 This repo is the **toolkit**, not a generated project. Repo name and package name are both `story-cli-kit`; the binary it installs is `ds`. It is a pnpm workspace:
 
 ```text
-package.json              the single installable artifact — bin: ds, built by `prepare` on install
-dist/                     build output — gitignored, produced at install time, never committed
+package.json              the single installable artifact — bin: ds, shipped precompiled
+dist/                     committed build output — regenerated and verified before GitHub delivery
 packages/engine/          the updatable surface — a workspace package, not published alone
 packages/cli/             ds command — create / adopt / generate / validate / update / migrate / guard
 templates/storybook-vite/ the copied-at-init surface
@@ -19,7 +19,7 @@ update-logs/              dated change log
 
 Four of those directories are marked **shipped**: they are named in `files` and reach an installed project. They sit at the repository root rather than under `packages/engine/src/` for a mechanical reason — `tsc` emits only `.js` and `.d.ts`, so a `.md` file under a compiled source tree is silently dropped from `dist/` and would never ship (ADR-012).
 
-The workspace exists for development. What gets *installed* is the repo root — because git installs resolve the repository root and cannot address a subdirectory (ADR-007). On a git install npm clones the whole repository, `prepare` compiles it, and the packed result is build output plus shipped assets; TypeScript source is not part of what a consumer receives (ADR-012). Nothing generated is committed. Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact, and the CLI reaches the engine through a subpath import rather than a workspace link, which does not exist in an installed tarball.
+The workspace exists for development. What gets *installed* is the repo root — because git installs resolve the repository root and cannot address a subdirectory (ADR-007). The repository carries verified JavaScript in `dist/`, so Git installs and `npx` use the precompiled artifact without fetching TypeScript or running a build on the user's machine (ADR-012). Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact, and the CLI reaches the engine through a subpath import rather than a workspace link, which does not exist in an installed tarball.
 
 Generated projects are outputs of this repo. Nothing here ships inside them except that one dependency and the template contents (as copied files).
 
@@ -184,11 +184,11 @@ The skill runs the script and treats its output as authoritative before adding s
 
 **There is no npm registry account and none is required.** Distribution is `npx github:joachimtrungtuan/story-cli-kit`. Verified against npm documentation, three facts make this viable:
 
-- **`prepare` runs on git installs.** npm installs the package's devDependencies and runs `prepare` before packing and installing it, so TypeScript can be built at install time. Committed build artifacts are not inherently required.
+- **Committed package files are available to Git installs.** The repository carries verified `dist/`, so installation does not depend on lifecycle scripts being permitted on the user's machine.
 - **Semver ranges work on git dependencies** via `#semver:^1.0.0` — npm matches tags in the remote much as it would a registry range. Generated projects get real version ranges, not pinned commits, so `update` keeps its semantics.
 - **Subdirectories cannot be addressed.** A git URL installs the *repository root*. There is no `#path=packages/cli` equivalent.
 
-The third fact is binding, and it is why the repo root — not `packages/cli` — is the installable artifact. The workspace survives for development; the root package declares the `ds` binary and ships the engine and templates alongside it. This does not reverse the monorepo decision: engine and CLI keep a real module boundary and separate directories, they simply install as one unit. That unit is compiled at install time into a single root `dist/`, and never bundled — see ADR-012.
+The third fact is binding, and it is why the repo root — not `packages/cli` — is the installable artifact. The workspace survives for development; the root package declares the `ds` binary and ships the engine and templates alongside it. This does not reverse the monorepo decision: engine and CLI keep a real module boundary and separate directories, they simply install as one precompiled, unbundled unit — see ADR-012.
 
 Rejected: publishing built artifacts to a separate distribution repository or a release branch. It works and keeps the main tree clean, but it needs CI to stay honest and buys nothing while there is one maintainer.
 
@@ -250,7 +250,7 @@ Taking `latest` here would trade a build-speed win we do not need — these proj
 
 Revisit when TypeScript 7.1 ships the stable API and `typescript-eslint` widens its peer range. Both are observable conditions, so this decision carries an expiry test rather than standing indefinitely. Node, React, Vite, Tailwind and Storybook all sit on their genuine latest.
 
-### ADR-012 — The toolkit builds at install time, through `prepare`
+### ADR-012 — The toolkit ships precompiled JavaScript
 
 The obvious alternative — no build step at all, `bin` pointing at a `.ts` entry run through Node's native type stripping — is impossible, and the reason is recorded here because the reasoning error that reached for it is repeatable.
 
@@ -262,7 +262,7 @@ Type stripping is available for a project's *own* code and deliberately withheld
 
 The trap is reading the type-stripping documentation for its stability claim and stopping there — then probing the *consequences* of having no build without re-checking the premise. A spike does not substitute for reading the source of the claim it rests on.
 
-**The decision.** `package.json` declares a `prepare` script that compiles the toolkit to JavaScript, and `bin` points at the compiled entry. npm installs the package's devDependencies and runs `prepare` before packing on **git installs** (ADR-007), so a `npx github:…` or a devDependency install gets built JavaScript without anything generated being committed.
+**The decision.** Maintainers compile the toolkit before GitHub delivery and commit the resulting `dist/`. `bin` points at that compiled entry. A `npx github:…` or project devDependency install therefore receives runnable JavaScript without compiling TypeScript or relying on lifecycle scripts on the user's machine.
 
 **The build shape.** This is the single authority for it; nothing else may restate it:
 
@@ -274,21 +274,21 @@ The trap is reading the type-stripping documentation for its stability claim and
 }
 ```
 
-One `outDir` at the repository root, `rootDir: "."`, so the compiled tree mirrors the source tree under `dist/`. `dist/` is the only `.gitignore` entry the build needs and the only *build* path in `files`, which keeps the packed contents assertable in CI as a literal list rather than a glob. The specifiers are verbose but nothing types them by hand. Source is **not** shipped: no `packages/`, so fixtures and tests cannot leak into the tarball by omission.
+One `outDir` at the repository root, `rootDir: "."`, so the compiled tree mirrors the source tree under `dist/`. `dist/` is committed and is the only *build* path in `files`, which keeps the packed contents assertable in CI as a literal list rather than a glob. CI rebuilds it and rejects any diff, making source/build drift a release failure. Source is **not** shipped: no `packages/`, so fixtures and tests cannot leak into the installed artifact by omission.
 
-**Why `files` has five entries and not two.** `tsc` emits `.js` and `.d.ts` and copies nothing else, so any non-TypeScript asset authored under a compiled source tree is absent from `dist/` and therefore absent from the tarball. Three things the design requires would ship nowhere under a narrower `files`: `migrations/<version>.md`, without which `--on-conflict=migrate` has no notes to hand an agent and the flag cannot do what it claims; the agent skill, without which semantic review does not exist in an installed project; and the contract documentation this file promises is shipped for agent reference. Each therefore lives in a directory at the repository root, named in `files`, authored as Markdown and shipped as Markdown. The alternative — a copy step inside `prepare` — is rejected because its omission would be silent, and because it would make `dist/` hold two kinds of thing.
+**Why `files` has five entries and not two.** `tsc` emits `.js` and `.d.ts` and copies nothing else, so any non-TypeScript asset authored under a compiled source tree is absent from `dist/` and therefore absent from the installed artifact. Three things the design requires would ship nowhere under a narrower `files`: `migrations/<version>.md`, without which `--on-conflict=migrate` has no notes to hand an agent and the flag cannot do what it claims; the agent skill, without which semantic review does not exist in an installed project; and the contract documentation this file promises is shipped for agent reference. Each therefore lives in a directory at the repository root, named in `files`, authored as Markdown and shipped as Markdown. A build-time copy step is rejected because its omission would be silent, and because it would make `dist/` hold two kinds of thing.
 
-The standing objection to `prepare` is that npm runs it silently, so a first `npx` becomes a half-minute of apparent hang. That objection is correct and is accepted: `prepare` is the least-bad option, not a good one. Weighed against:
+The install-time spike proved that `--ignore-scripts` creates neither the compiled entry nor the `ds` bin link when `bin` points into an unbuilt `dist/`. No toolkit code exists early enough to explain that failure. Precompiling is therefore the only Git-only distribution shape that both starts reliably and avoids making users compile the toolkit. Weighed against:
 
-- **Committing the built JavaScript.** Fast installs, no hooks, but it contradicts the standing "never commit `dist/`" rule, puts generated files in every diff, and lets the shipped JS drift from the source it came from.
+- **Building through `prepare`.** Keeps generated output out of Git, but every install pays for TypeScript and a build; script-blocking policies make the command disappear before it can explain the problem.
 - **Writing the shipped code in JavaScript with JSDoc types.** Satisfies the no-build goal literally. Rejected because the pain concentrates exactly where this codebase is most typed — the token schema, the manifest, and update classification all lean on generics that JSDoc expresses badly.
-- **Publishing to the npm registry.** Cleanest by a distance: build once at publish, ship JavaScript, no install hook, no artifacts in git. Rejected only because it reverses ADR-007's "no npm account and none is required". ADR-007 already records that the same bundle publishes unchanged, so this stays the documented upgrade path if the install-time build proves as annoying in practice as it does on paper.
+- **Publishing to the npm registry.** Also builds once before distribution and avoids committed artifacts, but reverses ADR-007's "no npm account and none is required". The same bundle can publish unchanged if the registry is adopted later.
 
 Consequences, accepted deliberately:
 
-- **`--ignore-scripts` breaks the install.** The sharpest edge, and it is not hypothetical — `npm ci --ignore-scripts` is common corporate CI policy. `prepare` does not run, nothing is compiled, and `ds` is missing its entry point. The failure must be caught and explained rather than surfacing as a missing-file stack trace: if the compiled entry is absent, say that the install skipped build scripts and name the command that fixes it (NFR5).
-- **Every install pays for a build**, including each CI reinstall of every generated project. This is a recurring cost borne by users, not a one-time cost borne by the maintainer — the inverse of the usual arrangement, and the strongest argument for the registry path later.
-- **TypeScript is a real devDependency**, fetched at install time. Pinned per ADR-011.
+- **`dist/` changes are part of every source change.** Maintainer review and CI must verify that rebuilding produces no diff; stale compiled output is a release blocker.
+- **Users do not build the toolkit.** Init and maintenance commands execute shipped JavaScript. They may generate or rebuild the user's project, but they do not compile `story-cli-kit` itself.
+- **TypeScript is a contributor devDependency**, pinned per ADR-011; consumers do not need it for toolkit execution.
 - **Erasable syntax only** — retained. No enums, runtime namespaces, parameter properties, import aliases or decorators in toolkit source. None are wanted in a CLI, and keeping `erasableSyntaxOnly: true` preserves the option of dropping the build if Node's restriction is ever relaxed.
 - **`tsc --noEmit` remains a distinct gate.** The build emits; it is not a substitute for checking, and CI runs both.
 - **The Node 24.12 floor is a choice, not a constraint.** Type stripping would have made it binding; a compiled toolkit does not. The dependency floor alone allows 22.13. Retained at 24 LTS on its own merits, and revisitable without touching anything else.

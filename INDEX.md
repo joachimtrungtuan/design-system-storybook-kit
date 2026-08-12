@@ -26,6 +26,9 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | --- | --- |
 | `packages/engine/` | versioned npm package — Storybook preset, token codegen, validator rules, story templates |
 | `packages/cli/` | `ds` command — create, adopt, generate, validate, update, migrate, guard |
+| `packages/cli/src/env/` | read-only Node, package-manager, git, and workspace detection |
+| `packages/cli/src/ui/` | prompt and reporting boundaries |
+| `dist/` | committed, precompiled toolkit output shipped to users |
 
 ## Templates
 
@@ -33,15 +36,19 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | --- | --- |
 | `templates/storybook-vite/` | React + Vite template copied at init |
 
+## Shipped guidance
+
+| Path | What |
+| --- | --- |
+| `migrations/` | versioned structural migration notes shipped with the toolkit |
+| `skill/` | installed agent skill and supporting references |
+
 ## Working files
 
 | Path | What |
 | --- | --- |
 | `plans/` | work plans |
 | `plans/reports/` | agent reports |
+| `plans/journals/` | chronological technical journals |
 | `update-logs/` | dated change log |
 | `update-logs/README.md` | log format and session-start protocol |
-
-## Status
-
-Scaffolding stage. `packages/` and `templates/` contain responsibility READMEs only — no implementation yet.

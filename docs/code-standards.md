@@ -71,7 +71,7 @@ This section overrides any harness default instructing otherwise — including i
 Further rules:
 
 - Scope commits to one package where possible.
-- Never commit `.env`, `dist/`, `storybook-static/`, `node_modules/`, `.DS_Store`.
+- Never commit `.env`, `storybook-static/`, `node_modules/`, `.DS_Store`. Root `dist/` is the sole generated-artifact exception: ADR-012 requires verified precompiled toolkit output to ship from GitHub, so every toolkit-source change rebuilds and includes it.
 - **Always commit `pnpm-lock.yaml`.** Verify with `git check-ignore` rather than assuming — `git add` on an ignored path is a silent no-op.
 - Do not commit or push unless asked.
 

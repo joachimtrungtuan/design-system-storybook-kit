@@ -1,7 +1,7 @@
 ---
 title: "story-cli-kit implementation"
 description: "Implement the full toolkit — engine, template, validator, guardrails and all seven ds commands — against the design already settled in docs/."
-status: pending
+status: in-progress
 priority: P1
 effort: ""
 tags: [cli, engine, template, validator]
@@ -12,7 +12,7 @@ created: 2026-08-04
 
 ## Overview
 
-`docs/` is complete and current: requirements, contract, architecture and fourteen ADRs all decided, stack versions verified 2026-08-04. Nothing is implemented — `packages/` and `templates/` hold responsibility READMEs and no code. This plan turns that specification into a working toolkit: the token engine, the Storybook preset, the neutral template, the validator, the generated-project guardrails, and all seven `ds` commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`), plus the release path that makes `npx github:joachimtrungtuan/story-cli-kit` work.
+`docs/` is complete and current: requirements, contract, architecture and fourteen ADRs all decided, stack versions verified 2026-08-04. Phase 1 established the precompiled package and CLI shell; the engine and template remain responsibility-only surfaces. This plan continues from that foundation through the token engine, the Storybook preset, the neutral template, the validator, the generated-project guardrails, and all seven `ds` commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`), plus the release path that makes `npx github:joachimtrungtuan/story-cli-kit` work.
 
 The plan implements the docs. It does not re-decide them. Where implementation reveals that a doc is silent or self-contradictory, that is surfaced to the maintainer rather than resolved silently; [Decisions this plan owns](#decisions-this-plan-owns) records every such resolution, and [Open items](#open-items) records the ones still outstanding.
 
@@ -43,7 +43,7 @@ The plan implements the docs. It does not re-decide them. Where implementation r
 
 | # | Phase | Depends on | Status |
 |---|-------|-----------|--------|
-| 1 | [Toolkit skeleton and CLI shell](./phase-01-toolkit-skeleton.md) | — | Pending |
+| 1 | [Toolkit skeleton and CLI shell](./phase-01-toolkit-skeleton.md) | — | Completed |
 | 2 | [Token engine: schema, ramps, codegen](./phase-02-token-engine-schema-ramps-codegen.md) | 1 | Pending |
 | 4 | [Storybook preset](./phase-04-storybook-preset.md) | 1, 2 | Pending — **runs before 3** |
 | 3 | [Validator](./phase-03-validator.md) | 1, 2, 4 | Pending |
@@ -78,7 +78,7 @@ The plan implements the docs. It does not re-decide them. Where implementation r
 
 ```text
 package.json                    story-cli-kit — the single installable artifact
-  bin: { ds: "./dist/packages/cli/src/bin.js" }         built by `prepare` on install (ADR-012)
+  bin: { ds: "./dist/packages/cli/src/bin.js" }         precompiled before GitHub delivery (ADR-012)
   imports: { "#engine/*": "./dist/packages/engine/src/*.js" }   cross-package resolution
   dependencies: @clack/prompts                the only runtime dep
   files: ["dist", "templates", "migrations", "skill", "docs"]   build output + shipped Markdown
@@ -110,7 +110,7 @@ These are resolutions to points `docs/` left silent or self-contradictory. Each 
 
 **The first release is v1.0.0, not v0.1.0** — Phase 10. Generated projects depend on `#semver:^1.0.0` (ADR-007), a range no 0.x tag satisfies, and under 0.x semantics `^0.1.0` resolves to `>=0.1.0 <0.2.0` — so every project created at first release would be pinned out of reach of `ds migrate` and of every subsequent minor. The version number is not a maturity signal here; it is the mechanism `ds update` runs on. The contract and manifest schema *are* the product, and both are settled, so committing to them at release is honest. Rejected: v0.1.0 with a `>=0.1.0 <1.0.0` range (non-idiomatic, and 0.x minors are conventionally breaking, contradicting the versioning table); v0.1.0 with `^0.1.0` (silently defeats `update`).
 
-**`files` ships five entries** — `["dist", "templates", "migrations", "skill", "docs"]`, those directories at the repository root — Phases 1 and 10. `tsc` copies no `.md`, so migration notes, the agent skill and the contract docs ship nowhere if they live under `src/` and `files` lists only build output. Rejected: a copy step inside `prepare` (omission is silent, and `dist/` would then hold two kinds of thing); moving them under `templates/` (that directory would then mean two things).
+**`files` ships five entries** — `["dist", "templates", "migrations", "skill", "docs"]`, those directories at the repository root — Phases 1 and 10. `tsc` copies no `.md`, so migration notes, the agent skill and the contract docs ship nowhere if they live under `src/` and `files` lists only build output. Rejected: a build-time copy step (omission is silent, and `dist/` would then hold two kinds of thing); moving them under `templates/` (that directory would then mean two things).
 
 **`migrate` ships in the next minor**, v1.1.0. The first release ships six commands.
 
@@ -193,11 +193,11 @@ All five reference groups that had no contract name are adopted, three under the
 
 Requirements each phase must honour, gathered here so no phase quietly drops one.
 
-- **Phase 1** — `verbatimModuleSyntax` in the tsconfig: `erasableSyntaxOnly` does not enforce `import type`, so a value-imported type throws at runtime while `tsc --noEmit` stays green. Phase 1 also fixes the **exit-code contract** for every command; CI and the agent skill depend on codes nothing else defines. And it guards `--ignore-scripts`, which silently skips the `prepare` build and leaves `ds` with no entry point.
+- **Phase 1** — `verbatimModuleSyntax` in the tsconfig: `erasableSyntaxOnly` does not enforce `import type`, so a value-imported type throws at runtime while `tsc --noEmit` stays green. Phase 1 also fixes the **exit-code contract** for every command; CI and the agent skill depend on codes nothing else defines. The toolkit is precompiled and `dist/` committed so script-blocking installs still receive a runnable `ds`.
 - **Phase 6** — stage the scaffold commit by explicit pathspec and gate on a clean tree, or `create` inside an enclosing repository sweeps the user's WIP into it.
 - **Phase 7** — `--dry-run` writes nothing at all: it runs before branch creation and does not regenerate `tokens.css`. A tree-hash success criterion is blind to both.
 - **Phase 8** — the archive containment check compares `realpath`s. On macOS the `/var` → `/private/var` symlink makes every extracted entry resolve outside a naive prefix check, so a positive-path test is required alongside the negative ones.
-- **Phase 10** — the stack table's re-verification gate, and a release test that a real install after `prepare` produces a working `ds`.
+- **Phase 10** — the stack table's re-verification gate, a source-to-`dist/` drift check, and a release test that a real install produces a working `ds` without lifecycle scripts.
 
 ## Success criteria
 
@@ -219,7 +219,7 @@ Requirements each phase must honour, gathered here so no phase quietly drops one
 | Risk | Impact | Where handled |
 | --- | --- | --- |
 | Engine imports do not resolve from an installed git tarball | Nothing runs after install | Phase 1 spike, before any command is written |
-| `prepare` fails or is skipped on a user's machine | `ds` has no entry point; installation breaks rather than execution | Phase 1 `--ignore-scripts` guard; Phase 10 release test |
+| Committed `dist/` drifts from TypeScript source | Users run stale code even though source review looks correct | Phase 1 build check; Phase 10 clean-rebuild CI gate |
 | Old-tag fetch fails offline or the tag was deleted | `migrate` policy unavailable at the moment it is needed | Phase 7 — refuse with an instruction, never fall back to a weaker prompt |
 | Reference tokens do not fit the contract schema | Phase 5 slips; translation is bigger than a copy | Phase 5, staged as its own step with tests |
 | Stack table (verified 2026-08-04) drifts before release | Generated projects install versions nobody checked | Phase 10 re-verification gate |

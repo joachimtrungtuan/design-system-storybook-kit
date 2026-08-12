@@ -1,6 +1,34 @@
 {
-  "name": "design-system-storybook",
-  "private": true,
+  "name": "story-cli-kit",
+  "version": "0.0.0",
   "type": "module",
-  "description": "Toolkit for generating and maintaining consistent Storybook design-system projects"
+  "description": "Toolkit for generating and maintaining consistent Storybook design-system projects",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "bin": {
+    "ds": "./dist/packages/cli/src/bin.js"
+  },
+  "imports": {
+    "#engine/*": "./dist/packages/engine/src/*.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "migrations",
+    "skill",
+    "docs"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"packages/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
 }

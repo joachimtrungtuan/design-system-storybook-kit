@@ -1,0 +1,1 @@
+{"version":3,"file":"help.js","sourceRoot":"","sources":["../../../../packages/cli/src/help.ts"],"names":[],"mappings":"AAAA,MAAM,CAAC,MAAM,QAAQ,GAAG;IACtB,QAAQ;IACR,OAAO;IACP,UAAU;IACV,UAAU;IACV,QAAQ;IACR,SAAS;IACT,OAAO;CACC,CAAC;AAIX,MAAM,CAAC,MAAM,SAAS,GAAG;;;;;;;;;;;;;;;wBAeD,CAAC;AAEzB,MAAM,UAAU,WAAW,CAAC,OAAgB;IAC1C,OAAO,gBAAgB,OAAO,iDAAiD,CAAC;AAClF,CAAC"}

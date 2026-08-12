@@ -1,6 +1,6 @@
 ---
 title: "Phase 2: Token engine — schema, ramps, codegen"
-status: todo
+status: pending
 priority: P1
 effort: "2-3d"
 dependencies: [1]
@@ -20,7 +20,7 @@ This is the phase where a bug is most expensive and least visible: a ramp genera
 
 - Parse `tokens.json` and reject malformed input with an `ActionableError` naming the offending path
 - Enforce, at parse time, every schema rule the contract states: `$base` / `$anchor` / `$mode` required per ramp, no ramp declaring every step literally, `color.semantic.*` referencing another token rather than a raw value
-- Generate a 50–950 ramp (**11 steps**: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950) from `$base` + `$anchor` + `$mode`, in `oklch` or `hsl`, per ramp. The count matters: contract rule 18 forbids a ramp declaring every step literally, and "twelve" — the number this plan and the contract both carried until the red team counted them — is a threshold no ramp ever reaches, so the one rule written to forbid hand-authored ramps would pass them all. Rule 18's wording becomes "declares **every** step literally", which is correct regardless of the count
+- Generate a 50–950 ramp (**11 steps**: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950) from `$base` + `$anchor` + `$mode`, in `oklch` or `hsl`, per ramp. The count matters: **[V18]** forbids a ramp declaring every step literally, and a rule phrased as a count of twelve is a threshold no ramp ever reaches, so the one rule written to forbid hand-authored ramps would pass them all. V18 is therefore worded "declares **every** step literally", which is correct regardless of the count
 - `$overrides` win over generated steps
 - The anchor step equals `$base` exactly — not approximately
 - Emit `tokens.css`: an `@theme` block whose declarations produce both Tailwind utilities and CSS custom properties from one source (ADR-003)
@@ -38,7 +38,7 @@ This is the phase where a bug is most expensive and least visible: a ramp genera
 
 **Ramp generation is interpolation between fixed lightness endpoints, not a hue rotation.** In `oklch` mode, hold chroma and hue from `$base`, distribute lightness across the eleven steps on a curve, and place `$base` untouched at its anchor step. In `hsl` mode, the same shape with HSL lightness. The two modes exist because oklch gives perceptually even steps while hsl reproduces what design tools hand off (ADR-006), so they must be genuinely different code paths, not one converted into the other.
 
-The interesting case is a low anchor: `cal-poly-green` anchors at 950, so ten of eleven steps are lighter than `$base` and the curve is almost entirely on one side of it. A generator that assumes the anchor sits mid-scale corrupts every dark brand colour — the contract calls this out explicitly, and it is a fixture, not a footnote.
+The interesting case is a low anchor: a dark brand green anchors at 950, so ten of eleven steps are lighter than `$base` and the curve is almost entirely on one side of it. A generator that assumes the anchor sits mid-scale corrupts every dark brand colour — the contract calls this out explicitly, and it is a fixture, not a footnote.
 
 **Gamut clipping is a reported condition, not a silent clamp.** oklch can express colours sRGB cannot. When a generated step falls outside gamut, clip it and record that it was clipped, so codegen can surface it rather than quietly emitting a different colour than the maths produced.
 
@@ -52,8 +52,8 @@ The interesting case is a low anchor: `cal-poly-green` anchors at 950, so ten of
 - Create: `packages/engine/src/tokens/codegen.ts` — `@theme` emitter
 - Create: `packages/engine/src/tokens/index.ts` — public surface
 - Create: `packages/engine/src/tokens/*.test.ts`
-- Create: `packages/engine/src/tokens/__fixtures__/` — valid and invalid token files. **Synthetic values only** (decided 2026-08-04): fixtures reproduce the reference project's *shape* — anchor positions, ramp structure, the flat-colour-beside-ramp case — with invented hexes. The test value lives in the anchor positions, not the specific colour, so nothing is lost, and no client hex or brand ramp name is committed to a repository that must be public for `npx github:…`
-- Create: `update-logs/2026-08-04/NN-token-engine.md`
+- Create: `packages/engine/src/tokens/__fixtures__/` — valid and invalid token files. **Synthetic values only**: fixtures reproduce the reference project's *shape* — anchor positions, ramp structure, the flat-colour-beside-ramp case — with invented hexes and invented ramp names. The test value lives in the anchor positions, not the specific colour, so nothing is lost, and no client hex or brand ramp name is committed to a repository that must be public for `npx github:…`. The same rule governs `docs/` and `plans/`: a public doc leaks exactly as much as a public fixture
+- Create: `update-logs/<date>/NN-token-engine.md`
 
 ## Implementation Steps
 
@@ -70,7 +70,7 @@ The interesting case is a low anchor: `cal-poly-green` anchors at 950, so ten of
 ## Success Criteria
 
 - [ ] Every fixture ramp reproduces `$base` exactly at its anchor step
-- [ ] `cal-poly-green` (anchor 950) and `yellow-green` (anchor 500) both generate usable eleven-step scales from the same code path
+- [ ] Both fixture ramps — a dark base anchored at 950 and a mid base anchored at 500 — generate usable eleven-step scales from the same code path
 - [ ] Codegen output is byte-identical across two runs and across shuffled input ordering
 - [ ] A ramp missing `$mode` fails parse with an error naming the ramp
 - [ ] A ramp declaring every step literally is rejected (contract rule, not a warning)
@@ -81,7 +81,7 @@ The interesting case is a low anchor: `cal-poly-green` anchors at 950, so ten of
 
 ## Risk Assessment
 
-**The generated ramp is mathematically even but visually wrong for a given brand.** Expected and accepted by ADR-006 — `$overrides` is the designed escape hatch. Worth confirming during Phase 5 by generating WIN Flavor's ramps from their anchors and diffing against the hand-authored values already in that project. That diff is real evidence about how many overrides a real brand needs, and it is cheap to produce here.
+**The generated ramp is mathematically even but visually wrong for a given brand.** Expected and accepted by ADR-006 — `$overrides` is the designed escape hatch. Worth confirming during Phase 5 by generating the reference project's ramps from their anchors and diffing against the hand-authored values already in that project. That diff is real evidence about how many overrides a real brand needs, and it is cheap to produce here.
 
 **Colour maths written by hand has subtle errors.** Round-trip tests catch conversion bugs; they do not catch a wrong lightness curve. Mitigate by generating a visual sheet of the fixture ramps once and looking at it — a one-off check, not a permanent artefact.
 

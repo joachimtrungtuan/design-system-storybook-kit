@@ -1,6 +1,6 @@
 ---
 title: "Phase 1: Toolkit skeleton and CLI shell"
-status: todo
+status: pending
 priority: P1
 effort: "1-2d"
 dependencies: []
@@ -10,23 +10,21 @@ dependencies: []
 
 ## Overview
 
-Make `ds` a real, runnable binary with nothing behind it yet: argument dispatch, help, the actionable-error contract, environment detection, and the test and typecheck gates every later phase relies on. The phase opens with a spike, because ADR-012 removed the build step that ADR-007 assumed would inline the engine, and nothing else can be built until that hole is closed.
+Make `ds` a real, runnable binary with nothing behind it yet: argument dispatch, help, the actionable-error contract, environment detection, and the test and typecheck gates every later phase relies on. The phase opens with a spike, because the compiled CLI must resolve the compiled engine from an installed git tarball and nothing else can be built until that is proven.
 
-## Unblocked: ADR-012 rewritten 2026-08-05 — the toolkit builds through `prepare`
+## The toolkit builds through `prepare`
 
-The red team refuted the original ADR-012, verified against `nodejs.org/api/typescript.html`: Node *"refuses to handle TypeScript files inside folders under a `node_modules` path"*, deliberately, with no override. Every install path puts `bin.ts` there, so "`ds --help` runs from a git install with no build step" was unachievable and gated all ten remaining phases.
-
-**Resolved: `prepare` compiles the toolkit at install time.** `architecture.md` ADR-012 carries the full reasoning and the three rejected alternatives. What this phase must build differs from the original plan in five concrete ways:
+Node *"refuses to handle TypeScript files inside folders under a `node_modules` path"* (`nodejs.org/api/typescript.html`), deliberately and with no override, and every install path puts `bin.ts` there. A toolkit that ships unbuilt TypeScript therefore cannot run at all — which is why ADR-012 has `prepare` compile it at install time. The ADR carries the full reasoning and the three rejected alternatives; five consequences land in this phase:
 
 - **`prepare` script** compiling engine and CLI to JavaScript; `bin` points at the compiled entry, not at `.ts`
 - **TypeScript is a devDependency**, pinned per ADR-011, fetched at install time — npm installs devDependencies before running `prepare` on a git install (ADR-007)
-- **`files` ships the build output plus `templates/`**; the compiled tree is gitignored and never committed
-- **`--ignore-scripts` must fail legibly.** `npm ci --ignore-scripts` is common CI policy; `prepare` then never runs and the compiled entry is absent. This is the phase's sharpest new edge and it needs a real check, not a stack trace
+- **`files` ships the build output plus the four asset directories** — `templates/`, `migrations/`, `skill/`, `docs/`; the compiled tree is gitignored and never committed
+- **`--ignore-scripts` must fail legibly.** `npm ci --ignore-scripts` is common CI policy; `prepare` then never runs and the compiled entry is absent. This is the sharpest edge in the phase and it needs a real check, not a stack trace
 - **`erasableSyntaxOnly` is retained** even though nothing now depends on it, so that dropping the build stays possible if Node's restriction is ever relaxed
 
 The Node 24.12 floor stays at 24 LTS but is now a choice rather than a constraint — type stripping no longer justifies it. Do not lower it in this phase; it is a separate decision.
 
-## The spike — still required, now about the built layout
+## The spike — the built layout
 
 **Question:** how does the compiled CLI entry import the compiled engine when the package is installed from a git URL?
 
@@ -34,7 +32,7 @@ The blocker changed the answer's shape but not the question: a workspace link st
 
 The workspace link that makes `import { codegen } from "story-cli-kit-engine"` work in development does not exist in an installed tarball — npm installs the repository root, not the workspace graph. Three candidates:
 
-- **Node subpath imports** — declare `"imports": { "#engine/*": "./packages/engine/src/*" }` in the root `package.json`. Resolves identically in the workspace and in `node_modules`, needs no build, and keeps the module boundary explicit and greppable. **Recommended.**
+- **Node subpath imports** — declare `"imports": { "#engine/*": "./dist/packages/engine/src/*.js" }` in the root `package.json`. Resolves identically in the workspace and in `node_modules`, and keeps the module boundary explicit and greppable. **Recommended.**
 - Relative imports across package directories (`../../engine/src/index.ts`) — works, but erases the boundary the monorepo exists to express and makes an engine move a repo-wide edit.
 - A `postinstall` that links the workspace — reintroduces the silent-install-hook failure mode ADR-012 rejected.
 
@@ -47,7 +45,7 @@ The workspace link that makes `import { codegen } from "story-cli-kit-engine"` w
 - `ds` runs from a git install, compiled by `prepare` at install time, with nothing generated committed (ADR-012)
 - An install that skipped build scripts (`--ignore-scripts`) produces an instruction naming what happened and how to fix it, never a missing-module stack trace (NFR5)
 - `ds --help` and `ds <command> --help` list commands and flags; unknown commands exit non-zero with a suggestion
-- `ds` refuses to run `validate` / `update` / `migrate` transiently via `npx` when a `.designsystem/manifest.json` is present, and points at the local command instead (ADR-007)
+- `ds` refuses to run `validate` / `update` / `migrate` / `guard` transiently via `npx` when a `.designsystem/manifest.json` is present, and points at the local command instead (ADR-007)
 - Node below 24.12 fails with an instruction naming Node 24 LTS and where to get it (NFR5)
 - Package manager, git presence, git repository ancestry and parent workspace declarations are all detectable as pure functions
 
@@ -67,14 +65,22 @@ The workspace link that makes `import { codegen } from "story-cli-kit-engine"` w
 
 **Prompts are wrapped, never called directly.** `ui/prompts.ts` is the only module importing `@clack/prompts`. Every wrapper handles `isCancel` by invoking a caller-supplied rollback and exiting cleanly. Commands that call clack directly will eventually forget the cancel branch, and that is the failure that leaves a half-written project on disk.
 
-**Dispatch is a switch.** `node:util` `parseArgs` per command with an explicit option spec; help text is a template literal. Five subcommands do not justify a CLI framework (code-standards §12).
+**Dispatch is a switch.** `node:util` `parseArgs` per command with an explicit option spec; help text is a template literal. Seven subcommands do not justify a CLI framework (code-standards §12).
 
 ## Related Code Files
 
-- Modify: `package.json` — **exists already** as `name: "design-system-storybook", private: true`. Rename to `story-cli-kit`, **delete `private: true`** (a private package does not install, and `npx github:…` would fail at the last step), then add `bin` (pointing at the *compiled* entry), `imports` (pointing at *compiled* paths), `files` (build output + `templates/`), `engines.node >=24.12`, `scripts.prepare`, `dependencies: { "@clack/prompts": "^<current>" }` and `devDependencies: { typescript: "6.0.3" }`
+- Modify: `package.json` — **exists already** as `name: "design-system-storybook", private: true`. Rename to `story-cli-kit`, **delete `private: true`** (a private package does not install, and `npx github:…` would fail at the last step), then add `engines.node >=24.12`, `scripts.prepare`, `dependencies: { "@clack/prompts": "^<current>" }`, `devDependencies: { typescript: "6.0.3" }`, and the build shape ADR-012 fixes:
+
+  ```jsonc
+  "bin":     { "ds": "./dist/packages/cli/src/bin.js" },
+  "imports": { "#engine/*": "./dist/packages/engine/src/*.js" },
+  "files":   ["dist", "templates", "migrations", "skill", "docs"]
+  ```
+
+
 - Create: `tsconfig.json` — strict, `erasableSyntaxOnly`, `verbatimModuleSyntax`, `noEmit`, `module: nodenext`. The checking config
-- Create: `tsconfig.build.json` — extends the above, `noEmit: false`, `outDir`, excludes tests and fixtures. The emitting config, invoked by `prepare`
-- Modify: `.gitignore` — the build output directory. Verify with `git check-ignore` after writing; per the standing git rules, `git add` on an ignored path is a silent no-op and the inverse mistake is just as quiet
+- Create: `tsconfig.build.json` — extends the above, `noEmit: false`, `noEmitOnError`, `rootDir: "."`, `outDir: "dist"`, `declaration: true`, excludes tests and fixtures. The emitting config, invoked by `prepare`. Declarations matter beyond this phase: Phase 4's preset is imported by every generated project, and a missing `.d.ts` degrades all of them at once
+- Modify: `.gitignore` — `dist/`. Verify with `git check-ignore` after writing; per the standing git rules, `git add` on an ignored path is a silent no-op and the inverse mistake is just as quiet
 - Create: `packages/cli/src/exit-codes.ts` — the exit-code contract, one place
 - Create: `packages/cli/src/bin.ts`
 - Create: `packages/cli/src/errors.ts`
@@ -83,11 +89,11 @@ The workspace link that makes `import { codegen } from "story-cli-kit-engine"` w
 - Create: `packages/cli/src/env/node.ts`, `package-manager.ts`, `git.ts`, `workspace.ts`
 - Create: `packages/cli/src/env/*.test.ts` (co-located, `node:test`)
 - Modify: `INDEX.md` — new source directories
-- Create: `update-logs/2026-08-04/NN-toolkit-skeleton.md`
+- Create: `update-logs/<date>/NN-toolkit-skeleton.md`
 
 ## Implementation Steps
 
-1. Root `package.json` (rename, drop `private`, add `prepare`, `bin`, `imports`, `files`, the TypeScript devDependency), both tsconfigs, and the `.gitignore` entry. Check `@clack/prompts` current version before adding it; do not guess (code-standards §12). Confirm with `npm pack --dry-run` that the rename took, that nothing refuses on `private`, and that the packed file list is the build output plus `templates/` — no fixtures, no tests, no `plans/`.
+1. Root `package.json` (rename, drop `private`, add `prepare`, `bin`, `imports`, `files`, the TypeScript devDependency), both tsconfigs, and the `.gitignore` entry. Check `@clack/prompts` current version before adding it; do not guess (code-standards §12). Confirm with `npm pack --dry-run` that the rename took, that nothing refuses on `private`, and that the packed file list is exactly `dist/`, `templates/`, `migrations/`, `skill/` and `docs/` — no `packages/`, no fixtures, no tests, no `plans/`, no `update-logs/`.
 2. Run the spike, **after** `prepare` has run rather than in a source checkout. Record the result — including a negative result — in the update-log entry, since it either confirms or contradicts ADR-007's "one artifact" reasoning. Order is reversed from the original plan: the spike now needs a build to exist before it can answer anything.
 3. `errors.ts` — `ActionableError` and the top-level handler. Tests assert the rendered shape of each field.
 4. `env/node.ts` — version parse and floor check against 24.12. Test the boundaries: 24.11.x fails, 24.12.0 passes, 25.x passes.
@@ -95,14 +101,14 @@ The workspace link that makes `import { codegen } from "story-cli-kit-engine"` w
 6. `env/git.ts` — git present, **`user.name` and `user.email` configured**, target inside a repository, that repository's root, tree clean. Identity is not optional: a fresh macOS with Xcode CLT has git and no identity, and Phase 6 commits at step 6 of 8, so an identity failure discovered there lands after the whole project is on disk.
 7. `env/workspace.ts` — does a parent declare `pnpm-workspace.yaml` or `package.json#workspaces`, and what line would register this directory. Returns the line; does not write it (ADR-010).
 8. `ui/prompts.ts` — `text`, `select`, `confirm` wrappers with mandatory rollback-on-cancel.
-9. `bin.ts` — dispatch, help, the npx-misuse guard, and stubs for all six commands that exit with "not implemented yet". Plus the **`--ignore-scripts` guard**: `bin` resolves to a file `prepare` produces, so an install that skipped build scripts leaves nothing to run and Node reports a missing module before any of this code is reached. Detect the absent build at the earliest point that still executes, and raise an `ActionableError` naming the cause (build scripts were skipped) and the fix (`npm rebuild story-cli-kit`, or reinstall without `--ignore-scripts`). Test by installing a tarball with `--ignore-scripts` and asserting the message rather than a stack trace.
+9. `bin.ts` — dispatch, help, the npx-misuse guard, and stubs for all seven commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`) that exit with "not implemented yet". Plus the **`--ignore-scripts` guard**: `bin` resolves to a file `prepare` produces, so an install that skipped build scripts leaves nothing to run and Node reports a missing module before any of this code is reached. Detect the absent build at the earliest point that still executes, and raise an `ActionableError` naming the cause (build scripts were skipped) and the fix (`npm rebuild story-cli-kit`, or reinstall without `--ignore-scripts`). Test by installing a tarball with `--ignore-scripts` and asserting the message rather than a stack trace.
 10. Update-log entry; `INDEX.md` sync.
 
 ## Success Criteria
 
 - [ ] `ds --help` runs from a tarball install and from a **real git install**, where `prepare` compiled it — the git path is the one that matters, since it is what `npx github:…` does
 - [ ] **An `--ignore-scripts` install produces the actionable message**, not a missing-module stack trace. Verified by actually installing that way, not by unit-testing the branch
-- [ ] `npm pack --dry-run` lists the build output and `templates/` and nothing else — no fixtures, no tests, no `plans/`
+- [ ] `npm pack --dry-run` lists `dist/`, `templates/`, `migrations/`, `skill/` and `docs/` and nothing else — no `packages/`, no fixtures, no tests, no `plans/`, no `update-logs/`. Asserted as a literal list, not eyeballed
 - [ ] Nothing generated is committed: `git status` is clean after a build, and `git check-ignore` confirms the output directory is ignored
 - [ ] `tsc --noEmit` rejects a type imported as a value — proves `verbatimModuleSyntax` is on and doing work
 - [ ] Exit codes are defined and asserted: success, validation failure, refusal, internal error

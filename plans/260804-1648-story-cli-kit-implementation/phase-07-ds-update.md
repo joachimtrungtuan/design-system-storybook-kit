@@ -1,6 +1,6 @@
 ---
 title: "Phase 7: ds update"
-status: todo
+status: pending
 priority: P1
 effort: "3-4d"
 dependencies: [6]
@@ -10,9 +10,9 @@ dependencies: [6]
 
 ## Overview
 
-Move a generated project to a newer engine version without destroying local work. One pipeline, one policy flag, five file categories, and a written report. This is the phase that decides whether the whole engine/content boundary was worth drawing — the manifest exists to answer exactly two questions here, and if classification is wrong the project's central safety claim is false.
+Move a generated project to a newer engine version without destroying local work. One pipeline, one policy flag, six file categories, and a written report. This is the phase that decides whether the whole engine/content boundary was worth drawing — the manifest exists to answer exactly two questions here, and if classification is wrong the project's central safety claim is false.
 
-## Where the old bytes come from — resolved 2026-08-04
+## Where the old bytes come from
 
 `docs/update-and-migration.md` requires that `--on-conflict=migrate` hand the agent four things: the file as it stands, **the old shipped version**, the new shipped version, and the migration notes. The manifest stores checksums, not content, so the old version's bytes exist nowhere in the project.
 
@@ -24,16 +24,15 @@ Rejected: keeping `.designsystem/baseline/` in every project (a full template co
 
 `--on-conflict=skip`, the default path, depends on none of this and ships first.
 
-## Where the *new* bytes come from — red team, 2026-08-04
+## Where the *new* bytes come from
 
-Symmetrical hole, missed until the review: `ds update --to <version>` has no path to the target version's template either. `update` runs from the project's own installed copy of the toolkit, so it has the version it already has; `baseline.ts` fetches only the *old* tag; and ADR-007 forbids running maintenance commands through `npx`. Nothing in the plan produces the target version's bytes.
+The symmetrical problem: `ds update --to <version>` needs the target version's template, and nothing obvious supplies it. `update` runs from the project's own installed copy of the toolkit, so it has the version it already has; `baseline.ts` fetches only the *old* tag; and ADR-007 forbids running maintenance commands through `npx`.
 
-Two coherent resolutions, and the phase must pick one before step 4:
+**Decision: `--to` fetches the target tag**, through the same machinery as `baseline.ts` — one module, two call sites, both semver-validated and both confined to their temp directory. `update` then genuinely moves a project between versions on its own, rather than being a command whose central flag cannot do what it says.
 
-- **`--to` fetches the target tag** through the same machinery as `baseline.ts` — one module, two call sites, both semver-validated and both confined. `update` then genuinely moves a project between versions on its own.
-- **Drop `--to`.** Updating means bumping the toolkit devDependency first, then running `ds update` with no argument; the installed version *is* the target. Simpler and honest about what the command can reach, but it makes the update a two-step the docs currently do not describe.
+Rejected: dropping `--to` and requiring the user to bump the toolkit devDependency first, so the installed version *is* the target. Simpler and honest about what the command can reach, but it turns every update into a two-step and pushes version selection into a file edit — and the fetch module has to exist for `migrate` regardless, so the saving is one call site, not one mechanism.
 
-Recommend the first: `baseline.ts` already has to exist, and `target.ts` is the same fetch against a different ref. Whichever is chosen, `docs/update-and-migration.md` changes with it — today it documents neither.
+With no `--to`, no fetch happens and the installed copy is the target. `docs/update-and-migration.md` carries both fetches and their shared safety rules.
 
 ## Requirements
 
@@ -41,7 +40,7 @@ Recommend the first: `baseline.ts` already has to exist, and `target.ts` is the 
 
 - `ds update [--to <version>] [--on-conflict=skip|migrate] [--dry-run]`
 - Preflight: refuse unless the git tree is clean; create branch `ds-update/<version>` (NFR1)
-- Classify every template-shipped file: **new** (absent locally, write), **unmodified** (checksum matches, overwrite), **conflicted** (checksum differs, policy applies), **user-created** (absent from manifest, never touched)
+- Classify every template-shipped file: **new** (absent locally, write), **unmodified** (checksum matches, overwrite), **conflicted** (checksum differs, policy applies), **user-created** (absent from manifest, never touched), **generated** (tier barrels and `tokens.css` — always regenerated, never conflicted), **adopt-merged** (marked by `adopt`, reported and never rewritten)
 - Regenerate `src/styles/tokens.css` from the project's own `tokens.json`
 - `skip` (default): leave the file, list it, quote the relevant migration notes
 - `migrate`: hand each conflicted file to an agent with the release's notes; per-file and independent, so one failure does not roll back the others
@@ -70,40 +69,41 @@ Recommend the first: `baseline.ts` already has to exist, and `target.ts` is the 
 ## Related Code Files
 
 - Create: `packages/engine/src/manifest/classify.ts` — the pure classifier
-- **Modify: `packages/engine/src/manifest/write.ts` — the post-update rewrite.** Missing from this phase until the red team caught it, and its absence is fatal: without it `engineVersion` and every checksum still describe the *old* version after an update completes, so the next update classifies the entire shipped tree as conflicted and the toolkit is unusable after exactly one successful run. Rewrite `engineVersion`, `createdWith` and every overwritten file's checksum; leave conflicted, user-created and adopt-merged entries alone
-- Create: `packages/engine/src/update/target.ts` — the *new* template's bytes (see below)
+- **Modify: `packages/engine/src/manifest/write.ts` — the post-update rewrite.** Load-bearing: without it `engineVersion` and every checksum still describe the *old* version after an update completes, so the next update classifies the entire shipped tree as conflicted and the toolkit is unusable after exactly one successful run. Rewrite `engineVersion` and every overwritten file's checksum; leave `createdWith` alone — it records the version a project was created with, not the version it currently runs — and leave conflicted, user-created and adopt-merged entries alone
+- Create: `packages/engine/src/update/target.ts` — the *new* template's bytes: `--to` fetches that tag through the shared fetch module; without it, the installed copy is the target
 - Create: `packages/engine/src/update/pipeline.ts` — preflight, classify, regenerate, apply, validate, report
 - Create: `packages/engine/src/update/report.ts`
 - Create: `packages/engine/src/update/baseline.ts` — old-version retrieval by tag fetch into a temp dir, with semver validation of the ref and confined extraction
 - Create: `packages/engine/src/migrations/README.md` — the notes format
 - Create: `packages/cli/src/commands/update.ts`
 - Create: `packages/engine/src/update/__fixtures__/` — projects at a prior version with seeded modifications
-- Create: `update-logs/2026-08-04/NN-update-pipeline.md`
+- Create: `update-logs/<date>/NN-update-pipeline.md`
 
 ## Implementation Steps
 
 1. `classify.ts` first, pure, with a fixture per category and per boundary: a file modified then reverted to its exact original (must classify unmodified), a file deleted locally, a file the user created at a path the new template also ships (a genuine collision worth its own decision — recommend treating it as conflicted).
 2. Preflight: clean-tree check and branch creation, both refusing loudly.
-3. `--dry-run` end to end. It ships before any write path exists, which is the right order — the expected first invocation is the dry run. **It runs before branch creation and regenerates nothing**: the red team found the specified order created a branch and rewrote `tokens.css` while the success criterion, a tree hash, was blind to both. Classify against an in-memory regeneration, print, exit.
-4. Resolve `--to` (fetch the target tag, or drop the flag) and build `target.ts` if the first.
+3. `--dry-run` end to end. It ships before any write path exists, which is the right order — the expected first invocation is the dry run. **It runs before branch creation and regenerates nothing** — a dry run that creates a branch and rewrites `tokens.css` has written twice while reporting clean, and a tree hash is blind to both. Classify against an in-memory regeneration, print, exit.
+4. `target.ts` — the `--to` fetch, sharing the tag-fetch module with `baseline.ts` rather than duplicating its semver validation and containment. With no `--to`, the installed copy is the target and no fetch runs.
 5. Apply for new, unmodified and generated files. Conflicted files are listed and untouched under `skip`.
 6. **Manifest rewrite**, with its own test: after a successful update, `engineVersion` matches the new version, every overwritten file's checksum matches its new bytes, and conflicted / user-created / adopt-merged entries are byte-identical to before. Then the round-trip assertion that actually proves it — run `update` twice against the same target; the second run must classify nothing as conflicted.
 7. Token regeneration from the project's own `tokens.json`, never the template's.
 8. Validate-and-report, including the new-rule wording.
 9. Report writer, exercised against a fixture with at least one file in every category.
-10. `baseline.ts` — tag fetch into `mkdtemp`, semver-validated ref, confined extraction, `finally` cleanup. **Containment compares `realpath`s, not string prefixes** — on macOS `mkdtemp` returns a path under `/var`, a symlink to `/private/var`, so a naive prefix check rejects every entry and `migrate` never works on the maintainer's own machine. Tests: a malformed `engineVersion` refused before any git invocation; an entry containing `..` refused; **a well-formed archive extracted successfully** — the positive case, absent from the earlier draft, and the only one that would have caught the symlink bug; temp directory gone after both success and failure.
+10. `baseline.ts` — tag fetch into `mkdtemp`, semver-validated ref, confined extraction, `finally` cleanup. **Containment compares `realpath`s, not string prefixes** — on macOS `mkdtemp` returns a path under `/var`, a symlink to `/private/var`, so a naive prefix check rejects every entry and `migrate` never works on the maintainer's own machine. Tests: a malformed `engineVersion` refused before any git invocation; an entry containing `..` refused; **a well-formed archive extracted successfully** — the positive case, and the only one that catches the symlink bug; temp directory gone after both success and failure.
 11. The `migrate` policy over `baseline.ts`: per-file, independent, agent handed all four inputs. Offline and missing-tag both refuse with an instruction.
 12. A refusal to move backwards without an explicit gesture.
-13. Update-log entry documenting the notes format, the tag-fetch decision, and how `--to` resolved.
+13. Update-log entry documenting the notes format and the two tag fetches.
 
 ## Success Criteria
 
-- [ ] Classification correct for all five categories, including the reverted-file and locally-deleted edge cases
-- [ ] `--dry-run` writes nothing **and creates no branch** — verified by comparing the tree hash *and* `git branch --list` before and after. The tree hash alone is what let the earlier draft create a branch and regenerate `tokens.css` while still reporting clean
+- [ ] Classification correct for all six categories — new, unmodified, conflicted, user-created, generated, adopt-merged — including the reverted-file and locally-deleted edge cases
+- [ ] `--dry-run` writes nothing **and creates no branch** — verified by comparing the tree hash *and* `git branch --list` before and after. A tree hash alone would pass a run that created a branch and regenerated `tokens.css`
 - [ ] After a successful update the manifest describes the **new** version: `engineVersion` bumped, overwritten checksums current, conflicted / user-created / adopt-merged entries untouched
 - [ ] Running `update` twice against the same target classifies nothing as conflicted on the second run — the assertion that proves the manifest rewrite actually happened
 - [ ] Checksum normalisation is the single shared module Phase 6 also uses, and the manifest carries a schema version so a normalisation change is detectable rather than silent
 - [ ] A dirty tree is refused with an instruction
+- [ ] `--to` and `baseline.ts` call one fetch module — a malformed version is refused identically on both paths
 - [ ] Work happens on `ds-update/<version>`, never on the current branch
 - [ ] User-created files are untouched, asserted by checksum across a full run
 - [ ] Conflicted files under `skip` are byte-identical afterwards

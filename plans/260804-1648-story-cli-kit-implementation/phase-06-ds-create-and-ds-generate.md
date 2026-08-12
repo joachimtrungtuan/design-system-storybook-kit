@@ -1,6 +1,6 @@
 ---
 title: "Phase 6: ds create and ds generate"
-status: todo
+status: pending
 priority: P1
 effort: "3-4d"
 dependencies: [5]
@@ -22,20 +22,21 @@ Everything about this phase is governed by a single sentence in FR6: a scaffold 
 - The install target is resolved to an absolute path and shown for confirmation before anything is written (FR1)
 - Target may be the current directory, a new subdirectory, or a nested path inside an existing repository — all three equally supported
 - Prerequisite gates before any write: Node ≥ 24.12, git present and identity configured, target free of collisions. Each failure is an instruction (NFR5)
-- **A non-empty target is allowed; a colliding one is refused.** Decided 2026-08-05 — previously undefined. `create` refuses only when a path the template ships already exists, naming the colliding paths and pointing at `ds adopt`
+- **A non-empty target is allowed; a colliding one is refused.** `create` refuses only when a path the template ships already exists, naming the colliding paths and pointing at `ds adopt`
 - Package manager detected, never installed; generated scripts and lockfile match it (ADR-008)
 - `git init` plus one commit containing the scaffold (ADR-009)
 - **Inside an existing repository:** state which repository was detected, offer enclosing (default) or independent nested, and on independent report what the parent needs — a submodule entry or a `.gitignore` line (ADR-009)
 - **Parent declares workspaces:** report that the directory should be registered and print the line. Do not edit the parent's file (ADR-010)
-- Dependencies installed as part of `create`, skippable by flag for automated use
-- `tokens.css` generated, `.designsystem/manifest.json` written with checksums as shipped
+- Dependencies installed as part of `create`, skippable by **`--no-install`** for automated use. **That flag also skips the tail `ds validate`**, and the closing report says both were skipped and prints the two commands to run them: with no `node_modules` there is no local `ds` binary to invoke, and ADR-007 forbids reaching for `npx` instead. A tail step that silently does nothing is worse than one that says why it did nothing
+- `tokens.css` generated, `.designsystem/manifest.json` written with checksums as shipped, `schemaVersion`, `engineVersion`, `createdWith`, `templateId` and **`appliedMigrations: []`** — the empty array is written at creation, not on first migration, so `ds migrate` reads a field that always exists
 - `ds validate` passes on the result
 
 **Functional — `generate`**
 
 - `ds generate <tier> <name>` writes the component directory, `index.ts`, the tier barrel entry and the mirrored story file
-- Refuses an unknown tier and a name that would violate the naming rules, with the rule quoted
+- Refuses an unknown tier and a name that would violate the naming rules, quoting the rule **by ID**
 - Output passes `ds validate` (NFR4: nothing beyond the component folder, its story and the barrel)
+- **`generate` is the sanctioned creation path, not merely the convenient one** (FR2b). It reads canonical scaffolding from the engine on every invocation, so a new component inherits the engine's shape rather than whatever the nearest sibling has drifted into. This is the mechanism behind **[S6]**, and the reason generated projects' agent instructions state it as a requirement rather than a tip — one unnoticed deviation copied forward becomes the reference for everything created after it
 
 **Non-functional**
 
@@ -47,9 +48,9 @@ Everything about this phase is governed by a single sentence in FR6: a scaffold 
 
 **Decide everything, then write.** `create` runs as two separated stages: a plan stage that gathers detection results and prompt answers into one description of intended work, and an apply stage that executes it. Interleaving prompts with writes is what produces half-written directories, and it makes the whole flow untestable — the plan stage is a pure function of environment plus answers, so it can be tested exhaustively without touching a disk.
 
-**Rollback is a recorded list, not a heuristic — and each entry records the pre-state.** The apply stage appends every path it touches together with what was there before: *created* (nothing was there) or *overwrote* (bytes existed). Rollback removes only what was created and restores what was overwritten. The red team found the earlier "every path it creates" wording fatal in the adopt-adjacent case: `git init` runs *after* copy, so between those two steps there is no git history to recover from, and a ledger that cannot distinguish the two classes deletes pre-existing user files on Ctrl-C. Never a recursive delete of the target. If `git init` already ran and the commit landed, rollback stops and reports rather than deleting a repository.
+**Rollback is a recorded list, not a heuristic — and each entry records the pre-state.** The apply stage appends every path it touches together with what was there before: *created* (nothing was there) or *overwrote* (bytes existed). Rollback removes only what was created and restores what was overwritten. Recording paths alone is not enough: `git init` runs *after* copy, so between those two steps there is no git history to recover from, and a ledger that cannot distinguish the two classes deletes pre-existing user files on Ctrl-C. Never a recursive delete of the target. If `git init` already ran and the commit landed, rollback stops and reports rather than deleting a repository.
 
-**Emptiness is the wrong question; collision is the right one.** `create` into a non-empty directory was undefined until 2026-08-05. Refusing every non-empty target is simplest but breaks a case this phase explicitly supports — scaffolding into the current directory — because a bare `.git`, a `README.md` or a `LICENSE` is enough to make a directory non-empty, and none of them are in the template's way. So the gate compares the template's file list against the target: a `README.md` beside a scaffold is fine, an existing `src/` is not.
+**Emptiness is the wrong question; collision is the right one.** Refusing every non-empty target is simplest but breaks a case this phase explicitly supports — scaffolding into the current directory — because a bare `.git`, a `README.md` or a `LICENSE` is enough to make a directory non-empty, and none of them are in the template's way. So the gate compares the template's file list against the target: a `README.md` beside a scaffold is fine, an existing `src/` is not.
 
 Refusal names the colliding paths and routes to `ds adopt`, which exists precisely for "there is already a project here" (ADR-013). Rejected: prompting to overwrite. It puts a destructive default one keystroke away during the first command a new user ever runs, and ADR-013 removed `--force` from `adopt` for the same reason — a toolkit whose central claim is that it never silently overwrites user work does not get to make an exception for its friendliest command.
 
@@ -65,9 +66,13 @@ This gate and the rollback ledger are separate defences and both are needed. The
 
 **Committing into an enclosing repository stages by explicit pathspec, on a clean tree.** When the user chooses the enclosing repository, a bare `git add -A` sweeps whatever they had in flight into the scaffold commit. Gate on a clean tree the same way `update` does, and stage only the paths the ledger recorded.
 
-**Rendered files are their own manifest class.** `templates/storybook-vite/package.json` carries `{{placeholders}}`, and nothing in the plan owned the substitution until the review. Two consequences, both load-bearing: the renderer lives here, beside `apply.ts`; and the manifest records the checksum of **what was written**, with the entry marked *rendered*. Checksumming the rendered bytes while `update` compares against unrendered template bytes would mark `package.json` conflicted on the first update of every project ever created — a permanent false conflict in the file users are most likely to have legitimately edited.
+**Rendered files are their own manifest class.** `templates/storybook-vite/package.json` carries `{{placeholders}}`, and two things follow, both load-bearing. The renderer is **Phase 5's materialise harness, reused rather than rewritten** — Phase 5 needs the same rendering to run its own acceptance criteria, and two implementations of one substitution is how a template starts rendering differently in a test than it does for a user. And the manifest records the checksum of **what was written**, with the entry marked *rendered*. Checksumming the rendered bytes while `update` compares against unrendered template bytes would mark `package.json` conflicted on the first update of every project ever created — a permanent false conflict in the file users are most likely to have legitimately edited.
 
-**`generate` must not append to a checksum-managed barrel.** `ds generate` writes a tier barrel entry, and that barrel is a template-shipped file the manifest tracks — so the NFR4-blessed way to add a component guarantees a conflict on every future update of every project that ever used it. Resolve it here, one of two ways: make tier barrels generated files (regenerated from the directory contents, never checksum-compared, same class as `tokens.css`), or have `generate` stop touching them and require an explicit export. Recommend the first — the barrel is derivable from the tree, which is what makes it a generated file rather than a hand-edited one.
+**Tier barrels are generated files.** `ds generate` writes a tier barrel entry, so a checksum-tracked barrel would make the NFR4-blessed way to add a component guarantee a conflict on every future update of every project that ever used it: the tool shipped to make a task easy would be the tool that broke that file's update path permanently.
+
+`src/components/<tier>/index.ts` therefore joins `src/styles/tokens.css` on the generated list — regenerated from the directories present, always overwritten, never checksum-compared. The barrel is *derivable*: it says nothing the tree does not already say, which is what makes it generated rather than hand-edited. `generate` regenerates it rather than appending to it, and `create` writes it the same way.
+
+Accepted cost: a hand-edited barrel — a custom re-export alias, say — is overwritten on the next update. Rejected: having `generate` print the export line for the user to paste (honest about conflicts, but one manual step per component and the conflict still arrives); and dropping barrels from the manifest entirely (no conflict, but an engine change to barrel conventions could never reach an existing project). `architecture.md`'s generated list and the contract's naming section both carry this now.
 
 ## Related Code Files
 
@@ -80,19 +85,19 @@ This gate and the rollback ledger are separate defences and both are needed. The
 - Create: `packages/engine/src/manifest/{checksum,write,read}.ts`
 - Create: `packages/cli/src/create/*.test.ts`
 - Modify: `packages/cli/src/bin.ts` — replace stubs
-- Create: `update-logs/2026-08-04/NN-create-command.md`
+- Create: `update-logs/<date>/NN-create-command.md`
 
 ## Implementation Steps
 
-1. `manifest/checksum.ts` and `write.ts` — sha256 per file, stable ordering, `engineVersion` / `templateId` / `createdWith`, plus a **manifest schema version** and the *rendered* / *merged* entry marks. Normalisation (line endings, trailing newline) lives in this one module and Phase 7 imports it rather than restating it; the schema version exists so that a future normalisation change is detectable instead of silently reclassifying every file.
+1. `manifest/checksum.ts` and `write.ts` — sha256 per file, stable ordering, `engineVersion` / `templateId` / `createdWith` / `appliedMigrations: []`, plus a **manifest schema version** and the *rendered* / *merged* entry marks. Normalisation (line endings, trailing newline) lives in this one module and Phase 7 imports it rather than restating it; the schema version exists so that a future normalisation change is detectable instead of silently reclassifying every file.
 2. `create/plan.ts` — pure, and the collision gate lives here since it is a comparison of two file lists, not a filesystem mutation. Tests cover the matrix that matters: empty directory, non-empty **without** collision, non-empty **with** collision, inside a repository, inside a workspace, nested inside both, npm-only machine, git absent, git identity unset.
 3. `create/prompts.ts` — conditional flow. The test is as much about what is *not* asked: an empty-directory run asks nothing about git ancestry or workspaces.
 4. `create/apply.ts` with the rollback ledger, **each entry carrying created-vs-overwrote**. Test rollback by injecting a failure at each stage and asserting the directory is as it was — including the case that matters most: a target directory holding a pre-existing file at a path the template also ships, cancelled mid-copy, where that file must survive byte-identical.
-5. The `{{placeholder}}` renderer, and the manifest recording rendered bytes under a *rendered* mark.
+5. Wire Phase 5's materialise harness in as the `{{placeholder}}` renderer — do not write a second one — and record the rendered bytes in the manifest under a *rendered* mark.
 6. Git handling: identity gate in preflight, `init`, initial commit, and the nested-repository branch — clean-tree gate, explicit pathspec staging, and the printed parent instruction.
 7. `install.ts` — stream the package manager's own output rather than hiding it behind a spinner. A visible install is more reassuring than an opaque one, and it is the ADR-012 lesson applied to the other long wait.
 8. Wire codegen and validate into the tail of the flow.
-9. `generate.ts` against shared scaffolds; test that output passes validation for each tier. Resolve the tier-barrel question first (generated file, or `generate` leaves it alone) — it changes what both this command and Phase 7 do.
+9. `generate.ts` against shared scaffolds; test that output passes validation for each tier. Barrel regeneration is a shared helper called by both `create` and `generate`, and Phase 7 treats its output as a generated file — one implementation, three call sites.
 10. **End-to-end on a clean machine profile:** npm only, no pnpm, no corepack. This is the ADR-008 promise and it needs a real run, not a unit test.
 11. Update-log entry.
 
@@ -107,13 +112,15 @@ This gate and the rollback ledger are separate defences and both are needed. The
 - [ ] A simulated failure at each apply stage rolls back cleanly
 - [ ] End-to-end run on npm-only succeeds; no attempt to install a package manager
 - [ ] After `create`: dependencies installed, Vite starts, Storybook starts, `ds validate` exits zero
-- [ ] Manifest checksums match the files actually on disk, verified by recomputation
+- [ ] Manifest checksums match the files actually on disk, verified by recomputation, and the manifest carries `appliedMigrations: []` from creation
+- [ ] **`create --no-install` reports that install and validation were both skipped and prints both commands** — it never runs a tail step that silently does nothing
 - [ ] Missing git produces an instruction naming where to get it, with no partial project written
 - [ ] **Unset `user.email` is refused in preflight**, naming the two `git config` commands, with nothing written — not discovered at commit time with the project already on disk
 - [ ] **A pre-existing file at a template path survives a cancelled `create` byte-identical** — the ledger's created-vs-overwrote distinction, tested directly
 - [ ] Committing into an enclosing repository refuses a dirty tree and stages only ledger paths — the user's unrelated work in flight is never swept into the scaffold commit
 - [ ] `package.json` is rendered from placeholders, and its manifest entry is marked *rendered* and matches the bytes on disk
-- [ ] `ds generate atoms my-thing` produces a component, barrel entry and story that all pass validation — **and a subsequent `ds update` does not report the barrel as conflicted**
+- [ ] `ds generate atoms my-thing` produces a component, a regenerated barrel and a story that all pass validation — **and a subsequent `ds update` classifies the barrel as generated, never as conflicted**
+- [ ] The barrel written by `create` and the barrel written by `generate` come from the same helper — byte-identical for the same directory contents
 
 ## Risk Assessment
 

@@ -16,7 +16,7 @@ The engine is semver. The meaning is defined by impact on a generated project:
 
 ## Release migration notes
 
-Every release ships `migrations/<version>.md` inside the engine. This is what makes agent-assisted migration work rather than guess.
+Every release ships `migrations/<version>.md`, authored at the toolkit's repository root and named in `files` so it reaches installed projects — a `.md` file under a compiled source tree would never be packed (ADR-012). This is what makes agent-assisted migration work rather than guess.
 
 ```markdown
 ## 2.0.0
@@ -38,9 +38,26 @@ Required per entry: what changed, whether it is breaking, the mechanical equival
 
 One pipeline. The conflict policy is a flag, not a second mode.
 
+Classification is one module, shared with `ds guard` (FR7). The guard tells an agent *before* a write what the pipeline will decide *after* one; if the two ever disagreed, the guard would be reassuring users about outcomes the pipeline does not produce, which is worse than having no guard.
+
 ```
 ds update [--to <version>] [--on-conflict=skip|migrate] [--dry-run]
 ```
+
+### Where the bytes come from
+
+`update` runs from the project's own installed copy of the toolkit (ADR-007 forbids running maintenance commands through `npx`), so two sets of bytes it needs are not present locally. Both are retrieved the same way: `git archive` against the tag, or the tarball, into a `mkdtemp` under the OS temp root, read, and removed in a `finally`.
+
+- **The target version**, when `--to <version>` is given. Without the fetch the flag has nothing to update *to* — the installed copy is the version the project already has. With no `--to`, the installed copy is the target and no fetch happens.
+- **The old shipped version**, when `--on-conflict=migrate` runs. The manifest stores checksums, not content, so the bytes as-shipped exist nowhere in the project — and without them an agent cannot distinguish a user's local modification from an old shipped default, which is exactly the judgement the migration notes' rationale field exists to support.
+
+Rejected: keeping `.designsystem/baseline/` in every project — a full template copy per repository, forever, that must stay in sync with the manifest and will eventually lie.
+
+Both fetches share one module. The version string originates in a file the user can edit and reaches a git ref, so it is validated against a semver pattern before interpolation, and archive extraction is confined to the temp directory by comparing resolved real paths — an entry escaping it is refused, not sanitised. Offline, or a deleted tag, is a **refusal with an instruction** naming the version needed; it never degrades silently to a weaker prompt, because a migration that appears to have run on full inputs and did not is worse than one that declined.
+
+`--on-conflict=skip`, the default path, needs neither fetch.
+
+### The steps
 
 1. **Preflight.** Refuse unless the git tree is clean. Create branch `ds-update/<version>`.
 2. **Read manifest.** Determine current version and per-file checksums.
@@ -49,12 +66,14 @@ ds update [--to <version>] [--on-conflict=skip|migrate] [--dry-run]
    - checksum matches manifest → **unmodified**, overwrite with new version
    - checksum differs → **conflicted**, apply policy
    - present locally, absent from manifest → **user-created**, never touch
+   - marked `merged` in the manifest → **adopt-merged**, report and never rewrite (ADR-013)
+   - on the generated list (`tokens.css`, tier barrels) → **generated**, always overwrite
 4. **Regenerate** `src/styles/tokens.css` from the project's own `tokens.json`.
 5. **Apply conflict policy** (below).
-6. **Validate.** Run `ds:validate`. Failures are reported, never auto-suppressed.
+6. **Validate.** Run `ds validate`. Failures are reported, never auto-suppressed.
 7. **Report.** Write `update-logs/<date>/NN-engine-update-<version>.md` listing every file by category, every conflict and its resolution, and every validator failure.
 
-`--dry-run` performs 1–4 and reports, writing nothing. It is the expected first invocation.
+`--dry-run` classifies and reports, writing nothing **and creating no branch**. It runs before step 1 rather than through it, and regenerates `tokens.css` in memory only — a dry run that creates a branch and rewrites a generated file has already changed the project it claimed to describe. It is the expected first invocation.
 
 ### Conflict policy
 

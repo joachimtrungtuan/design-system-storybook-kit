@@ -25,7 +25,7 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | Path | What |
 | --- | --- |
 | `packages/engine/` | versioned npm package — Storybook preset, token codegen, validator rules, story templates |
-| `packages/cli/` | `ds` command — create, validate, update, migrate |
+| `packages/cli/` | `ds` command — create, adopt, generate, validate, update, migrate, guard |
 
 ## Templates
 

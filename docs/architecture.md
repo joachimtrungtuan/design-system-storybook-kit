@@ -6,15 +6,20 @@ This repo is the **toolkit**, not a generated project. Repo name and package nam
 
 ```text
 package.json              the single installable artifact — bin: ds, built by `prepare` on install
+dist/                     build output — gitignored, produced at install time, never committed
 packages/engine/          the updatable surface — a workspace package, not published alone
-packages/cli/             ds command — create / adopt / validate / update / migrate
+packages/cli/             ds command — create / adopt / generate / validate / update / migrate / guard
 templates/storybook-vite/ the copied-at-init surface
-docs/                     requirements, contract, ADRs
+migrations/               release migration notes, <version>.md — SHIPPED
+skill/                    the agent skill: SKILL.md + references — SHIPPED
+docs/                     requirements, contract, ADRs — SHIPPED for agent reference
 plans/                    work plans and reports
 update-logs/              dated change log
 ```
 
-The workspace exists for development. What gets *installed* is the repo root — because git installs resolve the repository root and cannot address a subdirectory (ADR-007) — shipped as TypeScript source and compiled by `prepare` at install time (ADR-012). Nothing generated is committed. Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact, and the CLI reaches the engine through a subpath import rather than a workspace link, which does not exist in an installed tarball.
+Four of those directories are marked **shipped**: they are named in `files` and reach an installed project. They sit at the repository root rather than under `packages/engine/src/` for a mechanical reason — `tsc` emits only `.js` and `.d.ts`, so a `.md` file under a compiled source tree is silently dropped from `dist/` and would never ship (ADR-012).
+
+The workspace exists for development. What gets *installed* is the repo root — because git installs resolve the repository root and cannot address a subdirectory (ADR-007). On a git install npm clones the whole repository, `prepare` compiles it, and the packed result is build output plus shipped assets; TypeScript source is not part of what a consumer receives (ADR-012). Nothing generated is committed. Engine and CLI stay separate modules with a real boundary between them; they simply ship as one artifact, and the CLI reaches the engine through a subpath import rather than a workspace link, which does not exist in an installed tarball.
 
 Generated projects are outputs of this repo. Nothing here ships inside them except that one dependency and the template contents (as copied files).
 
@@ -27,8 +32,9 @@ This is the central decision. Everything about updating follows from it.
 - Storybook preset (`main.ts` / `preview.tsx` factories)
 - Token codegen: `tokens.json` → `src/styles/tokens.css`
 - Validator rules and CLI
-- Story templates and scaffolding generators
+- Story templates and scaffolding generators — the canonical source `ds generate` reads, so a new component never inherits a sibling's drift
 - Contract documentation shipped for agent reference
+- Agent hook configuration and the guard command behind it
 
 **Content** — copied at init, owned by the project, freely editable:
 
@@ -36,10 +42,14 @@ This is the central decision. Everything about updating follows from it.
 - `src/components/**`
 - `src/stories/**`
 - `src/pages/**`, `src/styles/globals.css`, assets
+- `AGENTS.md` and the agent hook configuration — shipped, so fixes to the guardrails reach existing projects, but editable because every project adds its own conventions
 
 **Generated** — machine-written, never hand-edited, safe to overwrite always:
 
 - `src/styles/tokens.css`
+- `src/components/<tier>/index.ts` — the tier barrels, derived from the directories present
+
+Tier barrels are generated because they are *derivable*: the barrel says nothing the tree does not already say. Making them a content file instead would mean `ds generate` — the sanctioned way to add a component — permanently conflicts the barrel it must append to, so the tool we ship to make a task easy would be the tool that breaks that file's update path forever. A hand-edited barrel (a custom re-export alias, say) is overwritten on the next update; that is the accepted cost.
 
 The consequence: a generated project's `.storybook/main.ts` is three lines importing the preset. Structural changes to Storybook wiring ship as an engine bump and require no user action. Structural changes to the *taxonomy* are a different matter — see below.
 
@@ -57,24 +67,34 @@ Every generated project carries `.designsystem/manifest.json`:
 
 ```jsonc
 {
+  "schemaVersion": 1,           // manifest format; bumped when checksum normalisation changes
   "engineVersion": "1.4.0",     // engine version at last successful update
   "templateId": "storybook-vite",
   "createdWith": "1.2.0",
+  "appliedMigrations": ["2.0-tier-rename"],   // structural migrations already run
   "files": {
     // path -> checksum AS SHIPPED by the template at the recorded version
-    "src/components/atoms/button/Button.tsx": "sha256-...",
-    "src/stories/foundations/Tokens.mdx": "sha256-..."
+    "src/components/atoms/button/Button.tsx": { "sha256": "..." },
+    "src/stories/foundations/Tokens.mdx": { "sha256": "..." },
+    // rendered: checksum is of what was WRITTEN, after placeholder substitution
+    "package.json": { "sha256": "...", "mark": "rendered" },
+    // merged: adopt wrote into a file the user already owned — never rewritten
+    "tsconfig.json": { "mark": "merged" }
   }
 }
 ```
 
 The manifest answers the only two questions an update needs: *which version is this project on*, and *which shipped files has the user modified*. A file whose current checksum differs from its manifest entry is user-modified. A file absent from the manifest is user-created and is never touched.
 
+Three fields exist because a plain path→checksum map cannot carry them. **`schemaVersion`** makes a change to checksum normalisation (line endings, trailing newline) detectable instead of silently reclassifying every file as conflicted. **`rendered`** marks a file written from `{{placeholders}}`, whose checksum is necessarily of the substituted bytes and not of the template's — without the mark, `update` would compare rendered bytes against unrendered template bytes and conflict `package.json` on the first update of every project ever created. **`merged`** marks a file `adopt` wrote into, which carries no checksum at all: there is no "as shipped by us" baseline for a file that is part theirs and part ours, so the manifest's central question is unanswerable for it and pretending otherwise would rest the update pipeline's one reliable signal on a foundation that cannot carry it (ADR-013).
+
+Checksum normalisation lives in one module, shared by every command that writes or reads the manifest. Two implementations of it would disagree, and the disagreement would surface as a wall of false conflicts.
+
 The manifest is the mechanism that makes "flag potential mismatch or data loss" possible. Without it, an updater can only overwrite blindly or do nothing.
 
 ## Update pipeline
 
-One pipeline, one policy flag — not two modes. The four file categories:
+One pipeline, one policy flag — not two modes. The six file categories:
 
 | Category | Detection | Behaviour |
 | --- | --- | --- |
@@ -82,9 +102,10 @@ One pipeline, one policy flag — not two modes. The four file categories:
 | Generated | on generated list | always overwritten |
 | Shipped, unmodified | in manifest, checksum matches | updated automatically |
 | Shipped, modified | in manifest, checksum differs | **policy applies** |
+| Adopt-merged | manifest `mark: "merged"` | reported, never rewritten |
 | User-created | absent from manifest | never touched |
 
-Only the fourth row varies. `--on-conflict=skip` (default) leaves the file and reports it. `--on-conflict=migrate` hands it to an agent with the release's migration notes.
+Only the "shipped, modified" row varies. `--on-conflict=skip` (default) leaves the file and reports it. `--on-conflict=migrate` hands it to an agent with the release's migration notes.
 
 Framing this as two whole modes would mean two code paths that must stay in sync. They would not stay in sync. Full detail: [update-and-migration.md](update-and-migration.md).
 
@@ -104,7 +125,7 @@ tokens.json  ──codegen──>  src/styles/tokens.css  ──@theme──>  T
   directives     expanded
 ```
 
-Colour ramps are **derived at codegen, never materialised back** into `tokens.json`. The token file holds an anchor, a mode and any pinned overrides; the generated CSS holds the twelve steps. Writing ramps back would make `tokens.json` partly generated and destroy the single-hand-edited-source invariant this pipeline exists to protect.
+Colour ramps are **derived at codegen, never materialised back** into `tokens.json`. The token file holds an anchor, a mode and any pinned overrides; the generated CSS holds the eleven steps (50, 100, 200 … 900, 950). Writing ramps back would make `tokens.json` partly generated and destroy the single-hand-edited-source invariant this pipeline exists to protect.
 
 Tailwind v4's `@theme` directive emits both the utility classes and the CSS variables from one declaration, so a single generated file serves both consumption paths. Verified against current Tailwind documentation.
 
@@ -131,7 +152,7 @@ Verified against the npm registry and vendor documentation on **2026-08-04**. Re
 
 **Node: 24.12 or newer**, which is 24 LTS (active until 2028-04). Node 20 is end-of-life; Node 22 LTS is excluded deliberately.
 
-The dependency floor alone would allow 22.13 — the intersection of Vite (`^20.19 || >=22.12`) and ESLint (`^20.19 || ^22.13 || >=24`). 24.12 was originally binding because the toolkit ran its own TypeScript through Node's native type stripping; ADR-012's rewrite (2026-08-05) removed that constraint, since what ships is now compiled JavaScript. The floor is **retained at 24 LTS as a choice** — it was already the recommendation, the audience is the maintainer's own projects, and one version to install is a better NFR5 instruction than a range. It is now revisitable on its own merits rather than dictated by another decision.
+The dependency floor alone would allow 22.13 — the intersection of Vite (`^20.19 || >=22.12`) and ESLint (`^20.19 || ^22.13 || >=24`). Nothing in the toolkit forces a higher floor: what ships is compiled JavaScript (ADR-012), so Node's type-stripping restrictions do not bear on it. The floor is **24 LTS as a choice** — it is the standing recommendation, the audience is the maintainer's own projects, and one version to install is a better NFR5 instruction than a range. It is revisitable on its own merits rather than dictated by another decision.
 
 ## Decisions
 
@@ -167,7 +188,7 @@ The skill runs the script and treats its output as authoritative before adding s
 - **Semver ranges work on git dependencies** via `#semver:^1.0.0` — npm matches tags in the remote much as it would a registry range. Generated projects get real version ranges, not pinned commits, so `update` keeps its semantics.
 - **Subdirectories cannot be addressed.** A git URL installs the *repository root*. There is no `#path=packages/cli` equivalent.
 
-The third fact is binding, and it is why the repo root — not `packages/cli` — is the installable artifact. The workspace survives for development; the root package declares the `ds` binary and ships the engine and templates alongside it. This does not reverse the monorepo decision: engine and CLI keep a real module boundary and separate directories, they simply install as one unit. There is no build and no bundle — see ADR-012.
+The third fact is binding, and it is why the repo root — not `packages/cli` — is the installable artifact. The workspace survives for development; the root package declares the `ds` binary and ships the engine and templates alongside it. This does not reverse the monorepo decision: engine and CLI keep a real module boundary and separate directories, they simply install as one unit. That unit is compiled at install time into a single root `dist/`, and never bundled — see ADR-012.
 
 Rejected: publishing built artifacts to a separate distribution repository or a release branch. It works and keeps the main tree clean, but it needs CI to stay honest and buys nothing while there is one maintainer.
 
@@ -227,27 +248,41 @@ TypeScript 7.0 ships without a stable programmatic API — the team expects it i
 
 Taking `latest` here would trade a build-speed win we do not need — these projects are small — for two things the contract actually depends on. Newest is not the same as current, and this is the case where they diverge.
 
-Revisit when TypeScript 7.1 ships the stable API and `typescript-eslint` widens its peer range. Both are observable conditions, so this is a dated decision rather than an indefinite one. Node, React, Vite, Tailwind and Storybook all sit on their genuine latest.
+Revisit when TypeScript 7.1 ships the stable API and `typescript-eslint` widens its peer range. Both are observable conditions, so this decision carries an expiry test rather than standing indefinitely. Node, React, Vite, Tailwind and Storybook all sit on their genuine latest.
 
 ### ADR-012 — The toolkit builds at install time, through `prepare`
 
-*Rewritten 2026-08-05. The original decision — no build step at all, `bin` pointing at a `.ts` entry run through Node's native type stripping — was refuted. What follows replaces it; the refutation is kept because the reasoning error is repeatable.*
+The obvious alternative — no build step at all, `bin` pointing at a `.ts` entry run through Node's native type stripping — is impossible, and the reason is recorded here because the reasoning error that reached for it is repeatable.
 
-**Why the original is impossible.** Node's own documentation, on the same page that carries the stability claim the decision was made from:
+**Why a build-free toolkit cannot work.** Node's own documentation, on the same page that carries the type-stripping stability claim:
 
 > To discourage package authors from publishing packages written in TypeScript, Node.js refuses to handle TypeScript files inside folders under a `node_modules` path.
 
-Type stripping is available for a project's *own* code and deliberately withheld from *installed packages*. No flag lifts it — `--no-strip-types` turns stripping off, not on. Every install path puts `bin.ts` under `node_modules`: the project devDependency directly, and `npx` by staging into `~/.npm/_npx/<hash>/node_modules/`. So the original ADR worked in a repo checkout and failed for every actual user, which is the worst possible shape for a defect. It is not a version gap and not a bug; it is policy, stable since 24.12.
+Type stripping is available for a project's *own* code and deliberately withheld from *installed packages*. No flag lifts it — `--no-strip-types` turns stripping off, not on. Every install path puts `bin.ts` under `node_modules`: the project devDependency directly, and `npx` by staging into `~/.npm/_npx/<hash>/node_modules/`. A build-free toolkit therefore works in a repo checkout and fails for every actual user, which is the worst possible shape for a defect. It is not a version gap and not a bug; it is policy, stable since 24.12.
 
-The error was reading the type-stripping documentation for the stability claim and stopping there. Two later spikes probed the *consequences* of having no build without re-checking the premise — a spike does not substitute for reading the source of the claim it rests on.
+The trap is reading the type-stripping documentation for its stability claim and stopping there — then probing the *consequences* of having no build without re-checking the premise. A spike does not substitute for reading the source of the claim it rests on.
 
 **The decision.** `package.json` declares a `prepare` script that compiles the toolkit to JavaScript, and `bin` points at the compiled entry. npm installs the package's devDependencies and runs `prepare` before packing on **git installs** (ADR-007), so a `npx github:…` or a devDependency install gets built JavaScript without anything generated being committed.
 
-This reverses the original ADR's rejection of `prepare`, which was that npm runs it silently and a first `npx` becomes a half-minute of apparent hang. That objection was correct and still stands — it is now simply the least-bad option, because the alternative it was rejected *in favour of* does not exist. Weighed against:
+**The build shape.** This is the single authority for it; nothing else may restate it:
+
+```jsonc
+{
+  "bin":     { "ds": "./dist/packages/cli/src/bin.js" },
+  "imports": { "#engine/*": "./dist/packages/engine/src/*.js" },
+  "files":   ["dist", "templates", "migrations", "skill", "docs"]
+}
+```
+
+One `outDir` at the repository root, `rootDir: "."`, so the compiled tree mirrors the source tree under `dist/`. `dist/` is the only `.gitignore` entry the build needs and the only *build* path in `files`, which keeps the packed contents assertable in CI as a literal list rather than a glob. The specifiers are verbose but nothing types them by hand. Source is **not** shipped: no `packages/`, so fixtures and tests cannot leak into the tarball by omission.
+
+**Why `files` has five entries and not two.** `tsc` emits `.js` and `.d.ts` and copies nothing else, so any non-TypeScript asset authored under a compiled source tree is absent from `dist/` and therefore absent from the tarball. Three things the design requires would ship nowhere under a narrower `files`: `migrations/<version>.md`, without which `--on-conflict=migrate` has no notes to hand an agent and the flag cannot do what it claims; the agent skill, without which semantic review does not exist in an installed project; and the contract documentation this file promises is shipped for agent reference. Each therefore lives in a directory at the repository root, named in `files`, authored as Markdown and shipped as Markdown. The alternative — a copy step inside `prepare` — is rejected because its omission would be silent, and because it would make `dist/` hold two kinds of thing.
+
+The standing objection to `prepare` is that npm runs it silently, so a first `npx` becomes a half-minute of apparent hang. That objection is correct and is accepted: `prepare` is the least-bad option, not a good one. Weighed against:
 
 - **Committing the built JavaScript.** Fast installs, no hooks, but it contradicts the standing "never commit `dist/`" rule, puts generated files in every diff, and lets the shipped JS drift from the source it came from.
 - **Writing the shipped code in JavaScript with JSDoc types.** Satisfies the no-build goal literally. Rejected because the pain concentrates exactly where this codebase is most typed — the token schema, the manifest, and update classification all lean on generics that JSDoc expresses badly.
-- **Publishing to the npm registry.** Cleanest by a distance: build once at publish, ship JavaScript, no install hook, no artifacts in git. Rejected here only because it reverses ADR-007's "no npm account and none is required". ADR-007 already records that the same bundle publishes unchanged, so this stays the documented upgrade path if the install-time build proves as annoying in practice as it does on paper.
+- **Publishing to the npm registry.** Cleanest by a distance: build once at publish, ship JavaScript, no install hook, no artifacts in git. Rejected only because it reverses ADR-007's "no npm account and none is required". ADR-007 already records that the same bundle publishes unchanged, so this stays the documented upgrade path if the install-time build proves as annoying in practice as it does on paper.
 
 Consequences, accepted deliberately:
 
@@ -256,7 +291,7 @@ Consequences, accepted deliberately:
 - **TypeScript is a real devDependency**, fetched at install time. Pinned per ADR-011.
 - **Erasable syntax only** — retained. No enums, runtime namespaces, parameter properties, import aliases or decorators in toolkit source. None are wanted in a CLI, and keeping `erasableSyntaxOnly: true` preserves the option of dropping the build if Node's restriction is ever relaxed.
 - **`tsc --noEmit` remains a distinct gate.** The build emits; it is not a substitute for checking, and CI runs both.
-- **The Node 24.12 floor is now a choice, not a constraint.** It was binding only because type stripping needed it. The dependency floor alone allows 22.13. Retained at 24 LTS because that was already the recommendation, but it is now revisitable without touching anything else.
+- **The Node 24.12 floor is a choice, not a constraint.** Type stripping would have made it binding; a compiled toolkit does not. The dependency floor alone allows 22.13. Retained at 24 LTS on its own merits, and revisitable without touching anything else.
 
 This applies to the toolkit only. Generated projects build normally through Vite.
 
@@ -289,3 +324,23 @@ Only `add` and `merge` write. `conflict` never resolves itself — there is no `
 **Merged files are permanently user-owned.** The manifest records that `adopt` touched them, but they are never checksum-managed and `update` never rewrites them — it reports them as needing attention and stops there. A file we merged into is a file whose baseline "as shipped by us" does not exist, so the manifest's central question — *has the user modified this since we wrote it* — is unanswerable for it. Pretending otherwise would put the update pipeline's one reliable signal on a foundation it cannot support.
 
 **Written record.** `adopt` leaves a report of every path and its classification in the project. NFR1 still applies in full: clean tree required, work on a branch, validator runs afterwards.
+
+### ADR-014 — Guardrails ship into generated projects as commands plus thin hook adapters
+
+A generated project is edited mostly by agents, and the toolkit's guarantees end at the moment it stops being the thing writing files. Two failure modes follow, both structural.
+
+**An agent edits a file the toolkit owns.** It looks like an ordinary source file, the edit works, tests pass — and the next `ds update` or codegen reverts it. Work is lost with no warning, and if the file was load-bearing the project's behaviour changes for reasons nothing in its history explains.
+
+**Compounding scaffolding drift.** An agent creates a component by copying the nearest existing one. If that component had already diverged, the copy inherits the divergence and becomes the next agent's reference. Each generation compounds, and because every step looks locally reasonable there is no point at which the drift is visible — only a later point at which it is no longer recoverable. This is the failure this repository exists to prevent, reappearing one level down.
+
+**`ds guard`, plus hooks that call it.**
+
+Classification comes from the manifest, which already records every shipped file, its checksum and its `mark`. `ds guard <path>...` returns the ownership class from the contract's table and exits non-zero on a refused write. A hand-maintained list of protected globs was rejected: it is stale the first time a component is added, and it is prose, which is the failure mode this project was created to end.
+
+Note what is *not* protected. There is no engine directory in a generated project — the engine is a dependency under `node_modules/`, and an agent editing it there is editing something the next install replaces. The surface that genuinely needs a guard is the one that lives in the project, looks ordinary, and is owned upstream: generated files and shipped files.
+
+**All logic lives in `ds` subcommands; the hook configuration is an adapter and nothing more.** The template ships `.claude/settings.json` for Claude Code and the Codex equivalent, each doing nothing but invoking `ds guard`, `ds validate`, and the project's own lint and typecheck. One implementation, tested once, runnable by hand and in CI; a third platform is then a config file rather than a port. Putting the checks *inside* platform hook definitions was rejected for the obvious reason — two copies that drift, in the mechanism whose entire job is preventing drift.
+
+Four events ship in the first release: a pre-write scope guard (the only one that acts *before* damage), and three end-of-pass checks — `ds validate`, lint and typecheck, and a git status report prompting a commit.
+
+Accepted limits, stated plainly so nobody mistakes this for a sandbox. Hooks are cooperative: they constrain agents that honour the platform's hook contract, and an agent invoked outside that contract, or a human with an editor, bypasses them entirely. The guard reduces accidents; it does not enforce a security boundary, and `ds validate` in CI remains the check that cannot be skipped. **The hook configuration is itself a shipped file** under the update pipeline — so a project that deletes its hooks keeps working, and V25 is what notices.

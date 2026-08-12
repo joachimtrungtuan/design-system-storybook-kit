@@ -1,9 +1,9 @@
 ---
 title: "Phase 9: ds adopt"
-status: todo
+status: pending
 priority: P2
 effort: "3-4d"
-dependencies: [5, 6]
+dependencies: [5, 6, 7]
 ---
 
 # Phase 9: `ds adopt`
@@ -21,7 +21,7 @@ The command's shape follows from that: compatibility gates first and refusal on 
 - React 19
 - Vite as the bundler — CRA, Next.js and webpack are out of scope (ADR-002) and are told so plainly
 - **Tailwind v4, absolutely.** On v3 the token pipeline does not degrade, it does not exist (ADR-003)
-- TypeScript present and within the ADR-011 range
+- TypeScript present, at a version the toolkit and template both work against. ADR-011 pins 6.0.3 for the *toolkit*, which is not a range and is not the same question — **this phase decides what an adopted project must satisfy**, against the peer ranges of the versions actually installed at implementation time, and records the answer in ADR-013
 
 **Functional — classification, five classes, only two of which write**
 
@@ -41,6 +41,8 @@ The command's shape follows from that: compatibility gates first and refusal on 
 - NFR1 in full: clean tree required, work on a branch, `ds validate` afterwards
 - A written record of every path and its classification, left in the project
 - **Merged files are permanently user-owned** — recorded in the manifest as merged, never checksum-managed, never rewritten by `update`
+- **`adopt` writes a full `.designsystem/manifest.json`** — `schemaVersion`, `engineVersion`, `createdWith`, `templateId`, `appliedMigrations: []`, and an entry per written file with its checksum and mark. An adopted project is a managed project, and `update`, `migrate` and `guard` all read this file; without it none of them can run
+- **`adopt` wires the host `package.json`** — the toolkit devDependency at the current version range, and the `ds:validate` script. ADR-007 forbids reaching for `npx` for maintenance commands, so without the devDependency there is no local binary and the project cannot validate or update itself at all. Both go through the `package.json` merger like any other addition
 
 ## Architecture
 
@@ -61,7 +63,7 @@ The command's shape follows from that: compatibility gates first and refusal on 
 - Create: `packages/engine/src/adopt/report.ts`
 - Create: `packages/engine/src/adopt/__fixtures__/` — a compliant Vite+Tailwind4 app, a Tailwind v3 app, a Next.js app, a CRA app, an app with colliding component paths
 - Modify: `packages/engine/src/manifest/write.ts` — the merged-file marking
-- Create: `update-logs/2026-08-04/NN-adopt-command.md`
+- Create: `update-logs/<date>/NN-adopt-command.md`
 
 ## Implementation Steps
 
@@ -70,8 +72,8 @@ The command's shape follows from that: compatibility gates first and refusal on 
 3. The four mergers, each with tests including the awkward cases: an existing dependency at an incompatible range, a `tsconfig` option already set to a different value, a `.gitignore` line present in a different form.
 4. Report writer, both the console table and the project artefact.
 5. The confirmation flow: classify, print, ask, write. `--dry-run` stops after the print, and the print is identical either way.
-6. Merged-file marking in the manifest, plus the Phase 7 assertion that `update` refuses to rewrite them.
-7. End-to-end against every fixture, including a run against a copy of `win-ui-layout` — a real project that is Vite plus Tailwind v4 plus React 19 and predates the contract, which makes it the most honest available test of what `adopt` reports.
+6. Merged-file marking in the manifest, plus the Phase 7 assertion that `update` refuses to rewrite them. Then the rest of the manifest — the same writer Phase 6 uses, so an adopted project and a created one produce the same shape — and the `package.json` additions that make `ds` locally runnable.
+7. End-to-end against every fixture, including a run against a copy of the maintainer's pre-contract reference project — Vite plus Tailwind v4 plus React 19, predating the contract, which makes it the most honest available test of what `adopt` reports.
 8. Update-log entry.
 
 ## Success Criteria
@@ -83,9 +85,11 @@ The command's shape follows from that: compatibility gates first and refusal on 
 - [ ] `--dry-run` output is byte-identical to the confirmation-prompt output of a real run
 - [ ] `package.json` merge detects an incompatible existing dependency range and reports it as a conflict rather than overwriting
 - [ ] Merged files are marked in the manifest and `update` refuses to rewrite them
+- [ ] An adopted project carries a manifest with the same fields a created one does, written by the same module — asserted by comparing the shapes
+- [ ] After adoption, the host `package.json` carries the toolkit devDependency and the `ds:validate` script, and `ds validate` runs from the project without `npx`
 - [ ] `ds validate` runs after adoption and its result is reported honestly, including failure
 - [ ] The project artefact report lists every path and its class
-- [ ] Adoption run against a copy of `win-ui-layout` completes and produces a coherent, readable classification
+- [ ] Adoption run against a copy of the reference project completes and produces a coherent, readable classification
 
 ## Risk Assessment
 
@@ -95,4 +99,4 @@ The command's shape follows from that: compatibility gates first and refusal on 
 
 **Adoption succeeds and leaves the project not actually working.** The gates check compatibility, not correctness — a project can pass every gate and still fail to build after adoption. `ds validate` afterwards is necessary but not sufficient. Say so in the report: adoption is a merge, not a guarantee, and the user should build before committing.
 
-**`win-ui-layout` is the only real-world test available.** One data point, and the maintainer's own project. Enough to be worth doing, not enough to claim general safety.
+**The reference project is the only real-world test available.** One data point, and the maintainer's own project. Enough to be worth doing, not enough to claim general safety.

@@ -59,6 +59,14 @@ Files merged into are permanently user-owned: recorded, never auto-updated. Mech
 
 An AI agent applies a brand (tokens, typography, brand guidelines, requested components) without altering taxonomy, naming rules, story conventions, or the token pipeline. The governance files (`CLAUDE.md` / `AGENTS.md`) and the contract doc are what constrain it.
 
+### FR2b — Generate
+
+A command scaffolds one component and its story at contract-correct paths: `ds generate <tier> <name>` writes the component directory, its `index.ts`, the mirrored story file, and regenerates the tier barrel. It refuses an unknown tier or a name violating the naming rules, quoting the rule. Its output passes validation.
+
+This is NFR4 made mechanical rather than aspirational. It adds nothing a person could not do by hand — NFR2 requires the manual path to keep working — but it removes the four chances to get a path or a title wrong.
+
+**It is also the sanctioned way to create a component, and the reason is drift, not convenience.** `generate` reads canonical scaffolding from the engine every time. Creating a component by copying a sibling instead inherits whatever that sibling has already diverged into, and the copy becomes the next author's reference — so one unnoticed deviation propagates through everything created afterwards, invisibly, until it is no longer recoverable. Agent instructions in generated projects state this as a requirement; `ds validate` catches the structural consequences and **[S6]** catches the rest.
+
 ### FR3 — Validate
 
 A deterministic script checks contract compliance and exits non-zero on violation. An agent skill wraps that script, treats its output as authoritative, and adds the semantic checks a script cannot perform. The script is the floor; the skill is the ceiling. The skill never reimplements a rule the script owns.
@@ -92,6 +100,16 @@ Two consequences of that floor, both required of `create`:
 
 - **The user's package manager is discovered, not dictated.** `create` detects npm, pnpm or yarn and generates a project that works with whichever is present. A user who has only npm — the common case for someone who installed Node and nothing else — must never be told to install a second package manager first.
 - **The project is a git repository from the first minute.** `create` initialises a repo and makes an initial commit, so NFR1's reversibility holds without the user knowing what git is. If git is absent, `create` says so and points at the installer rather than producing an unrecoverable project.
+
+### FR7 — Guard
+
+A generated project is edited mostly by agents, so the contract needs enforcement at the moment of writing, not only at review time.
+
+`ds guard <path>...` answers one question — *may this path be written?* — from the manifest, which already records every shipped file and its mark. **Generated** files are refused: an edit there is destroyed at the next codegen and its author is never told. **Shipped** files are allowed with a warning that the file becomes permanently conflicted on every future update. **User-created** files are allowed silently, and are where project work belongs.
+
+Generated projects ship hook configuration wiring four events to the toolkit's own commands: the guard before any write, and `ds validate`, lint-and-typecheck, and a git status report at the end of an agent pass. The checks live in `ds` subcommands and the hook files only invoke them, so one implementation serves Claude Code, Codex, CI and a human at a terminal.
+
+The guard reduces accidents; it is not a security boundary. Hooks constrain agents that honour them, and `ds validate` remains the check that cannot be bypassed. Mechanics and limits: [architecture.md](architecture.md) ADR-014.
 
 ## Non-functional requirements
 

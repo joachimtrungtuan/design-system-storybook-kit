@@ -1,6 +1,6 @@
 ---
 title: "Phase 8: ds migrate"
-status: todo
+status: pending
 priority: P3
 effort: "2d"
 dependencies: [7]
@@ -13,6 +13,8 @@ dependencies: [7]
 Structural migrations: whole-tree transforms that file-level checksums cannot express, such as renaming a tier or relocating `src/stories/`. Named, explicitly invoked, never automatic, always reversible via branch. Expected to be rare — each one is a real cost paid by every existing project, which `docs/update-and-migration.md` notes is itself an argument for getting the taxonomy right early.
 
 Lowest priority in the plan, and deliberately so: the first structural migration cannot be written until there is a taxonomy change to migrate. What this phase builds is the **mechanism plus one worked example**, so the machinery exists and is proven before it is urgently needed.
+
+**Ships in v1.1.0, after the first release.** Phase 10 does not depend on this phase: `migrate` handles a taxonomy change that has not happened yet, so gating the first release on it would hold back six working commands for a seventh nothing can exercise. v1.0.0 releases without `ds migrate`; this phase lands in the next minor, and `ds migrate --list` on a project created before it simply reports no migrations.
 
 ## Requirements
 
@@ -51,7 +53,7 @@ Lowest priority in the plan, and deliberately so: the first structural migration
 - Create: `packages/engine/src/migrations/__fixtures__/tier-rename/`
 - Create: `packages/cli/src/commands/migrate.ts`
 - Modify: `packages/engine/src/manifest/write.ts` — path rewriting
-- Create: `update-logs/2026-08-04/NN-structural-migrations.md`
+- Create: `update-logs/<date>/NN-structural-migrations.md`
 
 ## Implementation Steps
 

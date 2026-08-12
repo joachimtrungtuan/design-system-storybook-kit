@@ -14,7 +14,7 @@ created: 2026-08-04
 
 `docs/` is complete and current: requirements, contract, architecture and fourteen ADRs all decided, stack versions verified 2026-08-04. Phases 1 and 2 established the precompiled package and CLI shell plus the deterministic token engine; the preset, validator, template and command implementations remain pending. This plan continues from that foundation through the Storybook preset, the neutral template, the validator, the generated-project guardrails, and all seven `ds` commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`), plus the release path that makes `npx github:joachimtrungtuan/story-cli-kit` work.
 
-**Progress:** 21/137 success criteria complete (15%): Phase 1 is 12/12 and Phase 2 is 9/9. Phases 3–12 remain pending.
+**Progress:** 28/137 success criteria complete (20%): Phase 1 is 12/12, Phase 2 is 9/9, and Phase 4 is 7/7. Phase 3 and Phases 5–12 remain pending.
 
 The plan implements the docs. It does not re-decide them. Where implementation reveals that a doc is silent or self-contradictory, that is surfaced to the maintainer rather than resolved silently; [Decisions this plan owns](#decisions-this-plan-owns) records every such resolution, and [Open items](#open-items) records the ones still outstanding.
 
@@ -47,7 +47,7 @@ The plan implements the docs. It does not re-decide them. Where implementation r
 |---|-------|-----------|--------|
 | 1 | [Toolkit skeleton and CLI shell](./phase-01-toolkit-skeleton.md) | — | Completed |
 | 2 | [Token engine: schema, ramps, codegen](./phase-02-token-engine-schema-ramps-codegen.md) | 1 | Completed |
-| 4 | [Storybook preset](./phase-04-storybook-preset.md) | 1, 2 | Pending — **runs before 3** |
+| 4 | [Storybook preset](./phase-04-storybook-preset.md) | 1, 2 | Completed |
 | 3 | [Validator](./phase-03-validator.md) | 1, 2, 4 | Pending |
 | 5 | [Neutral template](./phase-05-neutral-template.md) | 2, 3, 4 | Pending |
 | 6 | [`ds create` and `ds generate`](./phase-06-ds-create-and-ds-generate.md) | 5 | Pending |

@@ -174,7 +174,20 @@ Rules that make this survive contact with real brands:
 - **[V22]** `.storybook/main.ts` imports the engine preset rather than declaring `stories`, `addons` or `framework` inline. Local additions extend the preset; they do not replace it.
 - **[V23]** `preview.tsx` imports the engine preview and spreads it. Project-specific decorators and backgrounds are appended.
 
-Brand surfaces (the background options a component must be legible on) are declared in `tokens.json` and consumed by the preview, so surfaces stay in the token contract rather than being hand-listed in config — a fix over the reference project, which hardcodes hex values in `preview.tsx`.
+Brand surfaces (the background options a component must be legible on) are declared under `$meta.surfaces` in `tokens.json` and consumed by the preview, so surfaces stay in the token contract rather than being hand-listed in config — a fix over the reference project, which hardcodes hex values in `preview.tsx`.
+
+```json
+{
+  "$meta": {
+    "surfaces": {
+      "canvas": { "color": "{color.base.white}" },
+      "inverse": { "color": "{color.brand.ink.950}", "mode": "dark" }
+    }
+  }
+}
+```
+
+Each `color` is a DTCG reference to a colour token or generated ramp step; raw colours are rejected. `mode` is optional and is `light` or `dark`. Without it, the preset classifies the resolved colour by relative luminance at the black/white contrast crossover; the explicit field remains the escape hatch for a designer-approved mid-tone.
 
 ## Ownership and agent guardrails
 

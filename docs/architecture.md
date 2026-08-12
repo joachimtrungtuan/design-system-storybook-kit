@@ -29,7 +29,7 @@ This is the central decision. Everything about updating follows from it.
 
 **Engine** — lives in `node_modules/story-cli-kit`, never edited in a generated project:
 
-- Storybook preset (`main.ts` / `preview.tsx` factories)
+- Storybook preset (`main.ts` / `preview.ts` factories; generated projects consume the preview factory from `.storybook/preview.tsx`)
 - Token codegen: `tokens.json` → `src/styles/tokens.css`
 - Validator rules and CLI
 - Story templates and scaffolding generators — the canonical source `ds generate` reads, so a new component never inherits a sibling's drift
@@ -137,16 +137,16 @@ This deliberately departs from the reference project, which maintains the same c
 
 ## Stack versions
 
-Verified against the npm registry and vendor documentation on **2026-08-04**. Re-verify at every engine release; a version table with no verification date is worse than none, because it is trusted without being current.
+Verified against the npm registry and vendor documentation on **2026-08-04**; version-sensitive preset rows were re-verified on **2026-08-12**. Re-verify at every engine release; a version table with no verification date is worse than none, because it is trusted without being current.
 
 | Package | Version | Note |
 | --- | --- | --- |
 | `react`, `react-dom` | 19.2.8 | |
-| `vite` | 8.2.0 | |
+| `vite` | 8.2.1 | re-verified 2026-08-12 |
 | `@vitejs/plugin-react` | 6.0.5 | peers `@rolldown/plugin-babel`, `babel-plugin-react-compiler` are **optional** — not installed |
 | `typescript` | 6.0.3 | **deliberately not 7.x** — see ADR-011 |
-| `tailwindcss`, `@tailwindcss/vite` | 4.3.3 | `@theme` confirmed current; ADR-003 holds |
-| `storybook`, `@storybook/react-vite`, `@storybook/addon-docs` | 10.5.6 | `react-vite` peers `vite ^5–^8` |
+| `tailwindcss`, `@tailwindcss/vite` | 4.3.3 | re-verified 2026-08-12; `@theme` confirmed current; ADR-003 holds |
+| `storybook`, `@storybook/react-vite`, `@storybook/addon-docs` | 10.5.7 | re-verified 2026-08-12; `react-vite` peers `vite ^5–^8` |
 | `vitest` | 4.1.10 | |
 | `eslint` | 10.8.0 | |
 | `typescript-eslint` | 8.66.0 | peers `typescript >=4.8.4 <6.1.0` — the binding constraint |

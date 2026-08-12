@@ -21,6 +21,7 @@ export interface RampDefinition {
 
 export interface ParsedTokens {
   root: TokenObject;
+  configuration: TokenObject;
   source: string;
 }
 
@@ -213,6 +214,7 @@ export function parseTokens(input: unknown, source = "tokens.json"): ParsedToken
   }
 
   const root: TokenObject = {};
+  const configuration: TokenObject = {};
   for (const key of Object.keys(input).sort()) {
     if (!key.startsWith("$") && !ALLOWED_TOP_LEVEL_GROUPS.has(key)) {
       fail(
@@ -223,11 +225,12 @@ export function parseTokens(input: unknown, source = "tokens.json"): ParsedToken
       );
     }
     if (key.startsWith("$")) {
+      configuration[key] = parseNode(input[key], source, `$.${key}`, [key]);
       continue;
     }
     root[key] = parseNode(input[key], source, `$.${key}`, [key]);
   }
-  return { root, source };
+  return { root, configuration, source };
 }
 
 export function parseTokensJson(input: string, source = "tokens.json"): ParsedTokens {

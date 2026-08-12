@@ -60,3 +60,15 @@ test("invalid JSON is reported as an actionable source error", () => {
     (error: unknown) => error instanceof ActionableError && error.resource === "fixture.json",
   );
 });
+
+test("$-prefixed configuration is retained outside the token root", () => {
+  const parsed = parseTokens({
+    $meta: { surfaces: { canvas: { color: "{color.base.white}" } } },
+    color: { base: { white: "#FFFFFF" } },
+  });
+
+  assert.deepEqual(parsed.configuration, {
+    $meta: { surfaces: { canvas: { color: "{color.base.white}" } } },
+  });
+  assert.deepEqual(parsed.root, { color: { base: { white: "#FFFFFF" } } });
+});

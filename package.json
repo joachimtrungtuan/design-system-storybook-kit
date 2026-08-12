@@ -9,6 +9,16 @@
   "bin": {
     "ds": "./dist/packages/cli/src/bin.js"
   },
+  "exports": {
+    "./preset": {
+      "types": "./dist/packages/engine/src/preset/main.d.ts",
+      "import": "./dist/packages/engine/src/preset/main.js"
+    },
+    "./preview": {
+      "types": "./dist/packages/engine/src/preset/preview.d.ts",
+      "import": "./dist/packages/engine/src/preset/preview.js"
+    }
+  },
   "imports": {
     "#engine/*": "./dist/packages/engine/src/*.js"
   },
@@ -25,10 +35,23 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@clack/prompts": "^1.7.0"
+    "@clack/prompts": "^1.7.0",
+    "@tailwindcss/vite": "4.3.3"
+  },
+  "peerDependencies": {
+    "@storybook/addon-docs": "^10.5.7",
+    "@storybook/react-vite": "^10.5.7",
+    "storybook": "^10.5.7",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.1"
   },
   "devDependencies": {
+    "@storybook/addon-docs": "^10.5.7",
+    "@storybook/react-vite": "^10.5.7",
     "@types/node": "24.13.3",
-    "typescript": "6.0.3"
+    "storybook": "^10.5.7",
+    "tailwindcss": "^4.3.3",
+    "typescript": "6.0.3",
+    "vite": "^8.2.1"
   }
 }

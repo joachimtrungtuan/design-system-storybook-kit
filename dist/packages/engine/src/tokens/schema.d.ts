@@ -14,6 +14,7 @@ export interface RampDefinition {
 }
 export interface ParsedTokens {
     root: TokenObject;
+    configuration: TokenObject;
     source: string;
 }
 export declare function tokenReferencePath(value: string): string | undefined;

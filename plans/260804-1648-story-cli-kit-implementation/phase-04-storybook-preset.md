@@ -1,6 +1,6 @@
 ---
 title: "Phase 4: Storybook preset"
-status: pending
+status: completed
 priority: P1
 effort: "1-2d"
 dependencies: [1, 2]
@@ -30,7 +30,7 @@ The build config must emit **declarations** for this surface. A consumer importi
 
 - `main.ts` factory: story globs, `@storybook/addon-docs`, `@storybook/react-vite` framework, Tailwind v4 through `@tailwindcss/vite`
 - Local additions extend the preset rather than replacing it (**[V22]**)
-- `preview.tsx` factory: parameters, docs config, and **brand surfaces read from `tokens.json`** rather than hardcoded — this is the stated fix over the reference project, which hardcodes hex values in `preview.tsx`
+- `preview.tsx` factory: parameters, docs config, and **brand surfaces read from `$meta.surfaces` in `tokens.json`** rather than hardcoded — each named entry carries a DTCG `color` reference plus optional `mode: "light" | "dark"`
 - A generated project's `.storybook/main.ts` is three lines and passes V22 and V23
 - Project-specific decorators can be appended without editing engine code
 
@@ -41,16 +41,16 @@ The build config must emit **declarations** for this surface. A consumer importi
 
 ## Architecture
 
-**Two factories, not two config objects.** `main(overrides)` and `preview(overrides)` return configuration with the project's additions merged in. Exporting frozen objects would force projects to spread and re-merge by hand, which is exactly the drift the preset exists to prevent — every project would spread slightly differently.
+**Two factories, not two config objects.** `main(overrides)` and `preview(tokens, overrides)` return configuration with the project's additions merged in. Exporting frozen objects would force projects to spread and re-merge by hand, which is exactly the drift the preset exists to prevent — every project would spread slightly differently.
 
-**Brand surfaces come from tokens.** The reference project hardcodes background hexes in `preview.tsx` and then string-matches them at runtime to decide whether a surface is light or dark. Instead, surfaces are declared in `tokens.json` and the preview builds its background list from them, so a rebrand is a token edit and the light/dark decision is data rather than a lookup table of hex strings.
+**Brand surfaces come from tokens.** The reference project hardcodes background hexes in `preview.tsx` and then string-matches them at runtime to decide whether a surface is light or dark. Instead, `$meta.surfaces.<name>` carries `color: "{color.path}"` and an optional explicit `mode`; the preview resolves the token and otherwise falls back to the relative-luminance contrast crossover. A rebrand is therefore a token edit and the light/dark decision is data rather than a lookup table of hex strings.
 
 **Decorators stay in the project.** The reference project's preview wraps stories in `MemoryRouter`, a `SurfaceProvider` and a devtools toolbar. None of those belong in the engine: the router is an application dependency, the toolbar is project tooling. The preset provides the merge point; the template supplies its own decorators through it.
 
 ## Related Code Files
 
 - Create: `packages/engine/src/preset/main.ts`
-- Create: `packages/engine/src/preset/preview.tsx`
+- Create: `packages/engine/src/preset/preview.ts` — emits the browser-side preview factory; the generated project consumes it from `.storybook/preview.tsx`
 - Create: `packages/engine/src/preset/surfaces.ts` — token-derived background list
 - Create: `packages/engine/src/preset/*.test.ts` — configuration shape and merge behaviour
 - Modify: `package.json` — `exports` map for the preset entry points
@@ -61,20 +61,20 @@ The build config must emit **declarations** for this surface. A consumer importi
 1. Verify the three consumption paths against a **built, installed** preset, and record the Storybook and Vite versions verified against — the stack table is dated for exactly this reason. Confirm the build config emits declarations for the preset's public surface.
 2. `main.ts` factory with merge semantics. Test: overrides add addons without dropping the preset's own.
 3. `surfaces.ts` — build the background list from parsed tokens, including the light/dark classification, derived from the surface colour rather than a name match.
-4. `preview.tsx` factory with a decorator merge point. Test that an appended decorator does not displace the preset's.
+4. `preview.ts` factory with a decorator merge point. Test that an appended decorator does not displace the preset's.
 5. `exports` map, verified from an installed tarball rather than from the workspace.
 6. Smoke test: a scratch project whose `.storybook/main.ts` is three lines, booting Storybook against a handful of stories. Automate what is cheap; a manual boot is acceptable here and worth doing once regardless.
 7. Update-log entry recording the verified versions.
 
 ## Success Criteria
 
-- [ ] All three consumption paths verified against a built, installed preset, with versions recorded
-- [ ] The preset's public surface ships `.d.ts` declarations — a consumer importing it gets types, not `any`
-- [ ] A three-line `.storybook/main.ts` boots Storybook in a scratch project
-- [ ] Preview background list is generated from `tokens.json`; no hex literal appears anywhere in `preset/`
-- [ ] Appending a decorator or addon in the project keeps every preset-supplied one
-- [ ] V22 and V23 pass against the scratch project's config
-- [ ] Preset resolves from an installed tarball, not only from the workspace
+- [x] All three consumption paths verified against a built, installed preset, with versions recorded
+- [x] The preset's public surface ships `.d.ts` declarations — a consumer importing it gets types, not `any`
+- [x] A three-line `.storybook/main.ts` boots Storybook in a scratch project
+- [x] Preview background list is generated from `tokens.json`; no hex literal appears anywhere in `preset/`
+- [x] Appending a decorator or addon in the project keeps every preset-supplied one
+- [x] V22 and V23 pass against the scratch project's config
+- [x] Preset resolves from an installed tarball, not only from the workspace
 
 ## Risk Assessment
 

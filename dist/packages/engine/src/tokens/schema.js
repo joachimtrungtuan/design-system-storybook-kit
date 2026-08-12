@@ -125,16 +125,18 @@ export function parseTokens(input, source = "tokens.json") {
         fail(source, "$", "Expected a top-level object", "Make tokens.json contain token groups.");
     }
     const root = {};
+    const configuration = {};
     for (const key of Object.keys(input).sort()) {
         if (!key.startsWith("$") && !ALLOWED_TOP_LEVEL_GROUPS.has(key)) {
             fail(source, `$.${key}`, "Unknown top-level token group", "Use a contract group or prefix non-token configuration with $.");
         }
         if (key.startsWith("$")) {
+            configuration[key] = parseNode(input[key], source, `$.${key}`, [key]);
             continue;
         }
         root[key] = parseNode(input[key], source, `$.${key}`, [key]);
     }
-    return { root, source };
+    return { root, configuration, source };
 }
 export function parseTokensJson(input, source = "tokens.json") {
     let parsed;

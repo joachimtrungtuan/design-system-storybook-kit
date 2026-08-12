@@ -1,10 +1,6 @@
+import { ActionableError } from "../../engine/src/errors.ts";
 import { type ExitCode } from "./exit-codes.ts";
-export declare class ActionableError extends Error {
-    readonly action: string;
-    readonly resource: string;
-    readonly exitCode: ExitCode;
-    constructor(problem: string, action: string, resource: string, exitCode?: ExitCode);
-}
+export { ActionableError } from "../../engine/src/errors.ts";
 export declare class PromptCancelledError extends Error {
     constructor();
 }

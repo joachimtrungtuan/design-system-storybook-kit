@@ -1,16 +1,6 @@
+import { ActionableError } from "../../engine/src/errors.js";
 import { EXIT_CODES } from "./exit-codes.js";
-export class ActionableError extends Error {
-    action;
-    resource;
-    exitCode;
-    constructor(problem, action, resource, exitCode = EXIT_CODES.refusal) {
-        super(problem);
-        this.name = "ActionableError";
-        this.action = action;
-        this.resource = resource;
-        this.exitCode = exitCode;
-    }
-}
+export { ActionableError } from "../../engine/src/errors.js";
 export class PromptCancelledError extends Error {
     constructor() {
         super("Operation cancelled.");

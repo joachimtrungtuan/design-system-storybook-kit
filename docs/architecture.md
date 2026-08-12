@@ -127,6 +127,8 @@ tokens.json  ──codegen──>  src/styles/tokens.css  ──@theme──>  T
 
 Colour ramps are **derived at codegen, never materialised back** into `tokens.json`. The token file holds an anchor, a mode and any pinned overrides; the generated CSS holds the eleven steps (50, 100, 200 … 900, 950). Writing ramps back would make `tokens.json` partly generated and destroy the single-hand-edited-source invariant this pipeline exists to protect.
 
+For reproducible output, each side of the anchor interpolates lightness with a 1.15-power curve toward a 0.97 light endpoint and mode-specific dark endpoints: 0.18 for OKLCH and 0.12 for HSL. The anchor is emitted from `$base` unchanged. When an OKLCH step falls outside sRGB gamut, codegen reduces chroma to an in-gamut value and reports the clipped step; an emitted clipped colour is never unreported.
+
 Tailwind v4's `@theme` directive emits both the utility classes and the CSS variables from one declaration, so a single generated file serves both consumption paths. Verified against current Tailwind documentation.
 
 This deliberately departs from the reference project, which maintains the same colour in three places (`tokens.json`, `globals.css` `:root`, `tailwind.config.ts`). That is a DRY violation and a live drift source. **No `tailwind.config.ts` in the template.**
@@ -178,7 +180,7 @@ The skill runs the script and treats its output as authoritative before adding s
 
 ### ADR-006 — Colour ramps generated from an anchor, per-ramp colour mode
 
-`$base` + `$anchor` + `$mode` (`oklch` | `hsl`) + optional `$overrides`, expanded at codegen. Rejected: hand-authored ramps as in the reference project — twelve values per colour, no stated relationship between them, and a rebrand means re-deriving every step by hand. Rejected: a single project-wide colour mode — a project routinely has one ramp that must match an existing spec (hsl) alongside others that should be perceptually even (oklch). Accepted cost: generated ramps are mathematically even, not automatically accessible; contrast remains a semantic `[S]` check.
+`$base` + `$anchor` + `$mode` (`oklch` | `hsl`) + optional non-anchor direct-hex `$overrides`, expanded at codegen. `$base` alone owns the anchor, so an anchor override is rejected rather than allowed to violate exact anchor fidelity. Rejected: hand-authored ramps as in the reference project — twelve values per colour, no stated relationship between them, and a rebrand means re-deriving every step by hand. Rejected: a single project-wide colour mode — a project routinely has one ramp that must match an existing spec (hsl) alongside others that should be perceptually even (oklch). Accepted cost: generated ramps are mathematically even, not automatically accessible; contrast remains a semantic `[S]` check.
 
 ### ADR-007 — Distributed from GitHub, not npm; `npx` scaffolds, the local install maintains
 

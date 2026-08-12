@@ -25,6 +25,7 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | Path | What |
 | --- | --- |
 | `packages/engine/` | versioned npm package — Storybook preset, token codegen, validator rules, story templates |
+| `packages/engine/src/tokens/` | token schema, colour conversion, ramp generation, and Tailwind theme codegen |
 | `packages/cli/` | `ds` command — create, adopt, generate, validate, update, migrate, guard |
 | `packages/cli/src/env/` | read-only Node, package-manager, git, and workspace detection |
 | `packages/cli/src/ui/` | prompt and reporting boundaries |

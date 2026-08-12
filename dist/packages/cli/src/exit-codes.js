@@ -1,7 +1,2 @@
-export const EXIT_CODES = {
-    success: 0,
-    validationFailure: 1,
-    refusal: 2,
-    internalError: 70,
-};
+export { EXIT_CODES } from "../../engine/src/exit-codes.js";
 //# sourceMappingURL=exit-codes.js.map

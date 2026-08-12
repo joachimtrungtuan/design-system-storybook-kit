@@ -107,7 +107,7 @@ color.brand.*        named brand colours, each declared as a ramp (below)
 color.secondary.*    supporting palettes
 color.grey.*         neutral scale
 color.base.*         white / black / transparent
-color.semantic.*     role-based aliases → reference other tokens, never raw values
+color.semantic.*     role-based aliases → DTCG brace references such as {color.brand.accent.500}, never raw values
 typography.*         font-family, font-weight, font-size, letter-spacing, line-height
 spacing.*            spacing scale
 radius.*, shadow.*, motion.*
@@ -115,7 +115,7 @@ breakpoint.*, container.*, icon.*, zIndex.*
 $meta.*              configuration, not tokens (e.g. $meta.iconLibrary)
 ```
 
-**[V19]** `color.semantic.*` entries must reference another token, not a raw value. This is what makes rebranding a token-file edit rather than a codebase sweep.
+**[V19]** `color.semantic.*` entries must hold a DTCG brace reference to another token, such as `{color.brand.accent.500}`, not a raw value. This is what makes rebranding a token-file edit rather than a codebase sweep.
 
 **[V24] Group naming.** A top-level group is named for its Tailwind v4 `@theme` namespace where one exists, camelCase otherwise, and non-token keys carry the `$` prefix. An unknown top-level group that is neither a namespace nor `$`-prefixed is a violation. Codegen is then a namespace lookup rather than a translation table, and a translation table is where drift lives.
 
@@ -139,7 +139,7 @@ A brand colour is declared by its **anchor**, not by eleven hand-picked values. 
   "$base": "#1B4B33",       // the approved brand value — never altered by the generator
   "$anchor": 950,           // which step $base occupies
   "$mode": "oklch",         // "oklch" | "hsl", chosen per ramp
-  "$overrides": {           // optional, wins over generated output
+  "$overrides": {           // optional direct six-digit hex values; wins over generated output
     "500": "#84B797"
   }
 }
@@ -155,7 +155,8 @@ Rules that make this survive contact with real brands:
 
 - **The anchor varies per colour.** A real reference project anchors its dark green at 950 and its mid lime at 500. Assuming 500 would corrupt every dark brand colour.
 - **Ramps are derived, not materialised.** Generated steps land in `src/styles/tokens.css`, never written back into `tokens.json`. Writing them back would make `tokens.json` partly generated and break the single-hand-edited-source invariant.
-- **`$overrides` exists because brands mandate exact values.** A designer specifying an exact tint at step 200 must be able to pin it without abandoning generation for the other ten.
+- **`$overrides` exists because brands mandate exact values.** A non-anchor override is a direct six-digit hex value in `tokens.json`, so a designer can pin an exact tint at step 200 without abandoning generation for the other ten. An override targeting `$anchor` is rejected: `$base` exclusively owns the approved anchor value and its exact fidelity.
+- **Raw hex stays inside `tokens.json`.** Within a ramp, `$base` and non-anchor `$overrides` are its raw hex values; raw hex remains forbidden outside that file.
 
 `$mode` per ramp, not per project: **oklch** gives perceptually even lightness steps and is the better default; **hsl** reproduces what design tools hand off and is the escape hatch when a ramp must match an existing spec. Mixing modes across ramps in one project is expected and permitted.
 

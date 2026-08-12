@@ -1,0 +1,52 @@
+{
+  "$meta": {
+    "iconLibrary": "synthetic"
+  },
+  "color": {
+    "brand": {
+      "accent": {
+        "$base": "#769C3A",
+        "$anchor": 500,
+        "$mode": "hsl",
+        "$overrides": {
+          "200": "#DDE8AA"
+        }
+      },
+      "nocturne": {
+        "$base": "#173D2B",
+        "$anchor": 950,
+        "$mode": "oklch"
+      }
+    },
+    "base": {
+      "black": "#000000",
+      "white": "#FFFFFF"
+    },
+    "semantic": {
+      "action": "{color.brand.accent.500}",
+      "action-muted": "{color.semantic.action}"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": "Inter, sans-serif"
+    },
+    "fontSize": {
+      "body": "1rem"
+    }
+  },
+  "spacing": {
+    "4": "1rem"
+  },
+  "radius": {
+    "md": "0.5rem"
+  },
+  "motion": {
+    "duration": {
+      "fast": "120ms"
+    },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)"
+    }
+  }
+}

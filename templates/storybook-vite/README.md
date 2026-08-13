@@ -26,6 +26,6 @@ This is not decoration. The template is the reference every later component gets
 
 `tailwind.config.ts` — tokens are CSS-first via `@theme` (ADR-003). Any generated file committed as source. Brand assets, brand copy, or real content.
 
-## Status
+## Materialisation
 
-Not implemented.
+The raw template intentionally contains placeholders and no generated `src/styles/tokens.css`. `materialiseTemplate` renders it into a temporary project, replaces every placeholder, and writes current token CSS; `ds create` will reuse the same rendering boundary.

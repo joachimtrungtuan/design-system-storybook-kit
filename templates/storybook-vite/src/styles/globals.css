@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+:root {
+  font-family: var(--font-sans);
+  color: var(--color-semantic-ink);
+  background: var(--color-semantic-surface);
+}
+
+body { margin: 0; }

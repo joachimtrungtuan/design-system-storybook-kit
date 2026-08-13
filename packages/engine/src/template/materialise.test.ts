@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+import test from "node:test";
+
+import { generateTokensCss, parseTokensJson } from "../tokens/index.ts";
+import { validateProject } from "../validator/index.ts";
+import { materialiseTemplate } from "./materialise.ts";
+
+test("materialiseTemplate renders placeholders and writes current token CSS", async (context) => {
+  const directory = await mkdtemp(resolve(tmpdir(), "story-cli-materialise-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  await materialiseTemplate({
+    destination: directory,
+    projectName: "example-system",
+    packageManager: "pnpm",
+    toolkitSpecifier: "file:/toolkit",
+  });
+  const packageJson = await readFile(resolve(directory, "package.json"), "utf8");
+  assert.match(packageJson, /"name": "example-system"/u);
+  assert.match(packageJson, /"packageManager": "pnpm"/u);
+  assert.doesNotMatch(packageJson, /\{\{/u);
+  const tokens = await readFile(resolve(directory, "tokens.json"), "utf8");
+  const expected = generateTokensCss(parseTokensJson(tokens)).css;
+  assert.equal(await readFile(resolve(directory, "src/styles/tokens.css"), "utf8"), expected);
+  assert.deepEqual((await validateProject(directory)).violations, []);
+});

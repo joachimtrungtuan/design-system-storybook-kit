@@ -135,6 +135,8 @@ This deliberately departs from the reference project, which maintains the same c
 
 `globals.css` remains hand-edited for font imports and base layer rules, and imports the generated `tokens.css`.
 
+The raw template is intentionally not an installable project: it retains create-time placeholders and omits generated CSS. [`materialiseTemplate`](../packages/engine/src/template/materialise.ts) owns the shared rendering boundary for isolated template verification; `create` must consume that boundary rather than maintain a second renderer.
+
 ## Stack versions
 
 Verified against the npm registry and vendor documentation on **2026-08-04**; version-sensitive preset rows were re-verified on **2026-08-12**. Re-verify at every engine release; a version table with no verification date is worse than none, because it is trusted without being current.
@@ -181,6 +183,8 @@ The skill runs the script and treats its output as authoritative before adding s
 ### ADR-006 — Colour ramps generated from an anchor, per-ramp colour mode
 
 `$base` + `$anchor` + `$mode` (`oklch` | `hsl`) + optional non-anchor direct-hex `$overrides`, expanded at codegen. `$base` alone owns the anchor, so an anchor override is rejected rather than allowed to violate exact anchor fidelity. Rejected: hand-authored ramps as in the reference project — twelve values per colour, no stated relationship between them, and a rebrand means re-deriving every step by hand. Rejected: a single project-wide colour mode — a project routinely has one ramp that must match an existing spec (hsl) alongside others that should be perceptually even (oklch). Accepted cost: generated ramps are mathematically even, not automatically accessible; contrast remains a semantic `[S]` check.
+
+The neutral template keeps generated ramps: exact translation of the pre-contract reference would require extensive non-anchor overrides. Revisit this ADR before making exact reference-ramp fidelity a requirement.
 
 ### ADR-007 — Distributed from GitHub, not npm; `npx` scaffolds, the local install maintains
 

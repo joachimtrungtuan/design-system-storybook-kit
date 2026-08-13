@@ -1,6 +1,6 @@
 ---
 title: "Phase 5: Neutral template"
-status: pending
+status: completed
 priority: P1
 effort: "4-6d"
 dependencies: [2, 3, 4]
@@ -136,19 +136,19 @@ Rejected: moving Phase 5's runtime gates into Phase 6, which leaves this phase �
 
 ## Success Criteria
 
-- [ ] `ds validate` reports zero violations against a materialised copy
-- [ ] Vite dev server and Storybook both start from a materialised copy of the template
-- [ ] A materialised copy contains no unrendered `{{placeholder}}`, and its `tokens.css` is byte-identical to codegen output
-- [ ] Every shipped component documents every size, state and tone variant in its story
-- [ ] `tokens.json` contains no materialised full-scale ramp; every ramp is anchor-declared
-- [ ] Every `color.semantic.*` entry references another token; none holds a raw value
-- [ ] `src/styles/tokens.css` is generated, current, and not hand-edited
-- [ ] No `tailwind.config.ts`, no postcss config, no autoprefixer
-- [ ] Template `package.json` runtime dependencies are exactly `@phosphor-icons/react` and `motion` beyond the stack — verified by reading the file, not by intent
-- [ ] Every top-level `tokens.json` group is a Tailwind `@theme` namespace, camelCase, or `$`-prefixed; the validator rejects a seeded violation
-- [ ] `$meta.iconLibrary` names the shipped icon set and the `icon` atom uses it
-- [ ] No brand value, asset or copy from the reference project survives anywhere in the tree
-- [ ] Override count from the ramp re-derivation recorded in the update log
+- [x] `ds validate` reports zero violations against a materialised copy
+- [x] Vite dev server and Storybook both start from a materialised copy of the template
+- [x] A materialised copy contains no unrendered `{{placeholder}}`, and its `tokens.css` is byte-identical to codegen output
+- [x] Every shipped component documents every size, state and tone variant in its story
+- [x] `tokens.json` contains no materialised full-scale ramp; every ramp is anchor-declared
+- [x] Every `color.semantic.*` entry references another token; none holds a raw value
+- [x] `src/styles/tokens.css` is generated, current, and not hand-edited
+- [x] No `tailwind.config.ts`, no postcss config, no autoprefixer
+- [x] Template `package.json` runtime dependencies are exactly `@phosphor-icons/react` and `motion` beyond the stack — verified by reading the file, not by intent
+- [x] Every top-level `tokens.json` group is a Tailwind `@theme` namespace, camelCase, or `$`-prefixed; the validator rejects a seeded violation
+- [x] `$meta.iconLibrary` names the shipped icon set and the `icon` atom uses it
+- [x] No brand value, asset or copy from the reference project survives anywhere in the tree
+- [x] Override count from the ramp re-derivation recorded in the update log
 
 ## Risk Assessment
 

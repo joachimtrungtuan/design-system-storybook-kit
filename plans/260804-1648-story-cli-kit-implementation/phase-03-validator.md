@@ -1,6 +1,6 @@
 ---
 title: "Phase 3: Validator"
-status: pending
+status: in-progress
 priority: P1
 effort: "2-3d"
 dependencies: [1, 2, 4]
@@ -115,17 +115,17 @@ Rejected: strict filename mirroring with a declared exception list for grouped f
 
 ## Success Criteria
 
-- [ ] V1–V24 implemented, each with a passing and a failing fixture
-- [ ] `ds validate` exits zero on the compliant fixture, non-zero on every seeded violation
-- [ ] Every violation names the file and what to change; no violation reports only a rule ID
-- [ ] `--json` output parses and carries file, **rule ID**, message per violation
-- [ ] V3 correctly ignores `import type` and correctly catches a barrel re-export crossing tiers
-- [ ] V15 fails on a stale `tokens.css` and passes immediately after regeneration
-- [ ] V12 passes a `globals.css` carrying an `@import` webfont URL and an `@font-face` block, and still fails the same font family written into a component or into a `globals.css` custom property — the exemption is scoped to two at-rules, not to the file
-- [ ] V9 passes a grouped story file declaring `subcomponents`, passes a component whose story file is named differently from it but sits in the same tier directory, and still fails a component that appears in neither `component` nor `subcomponents` of any story in its tier — coverage is the declaration, not the filename
-- [ ] Zero rules reimplement schema checks Phase 2 already owns
-- [ ] The run against the pre-contract project completes without crashing and produces a readable report
-- [ ] The `[V]` list in `docs/design-system-contract.md` and the implemented rule list are one-to-one for V1–V24, verified by counting both; **V25 and V26 are reserved, listed in the contract, and unimplemented until Phase 12** — the count reconciles when Phase 12 lands, and Phase 12's own criteria assert it
+- [x] V1–V24 implemented, each with a passing and a failing fixture
+- [x] `ds validate` exits zero on the compliant fixture, non-zero on every seeded violation
+- [x] Every violation names the file and what to change; no violation reports only a rule ID
+- [x] `--json` output parses and carries file, **rule ID**, message per violation
+- [x] V3 correctly ignores `import type` and correctly catches a barrel re-export crossing tiers
+- [x] V15 fails on a stale `tokens.css` and passes immediately after regeneration
+- [x] V12 passes a `globals.css` carrying an `@import` webfont URL and an `@font-face` block, and still fails the same font family written into a component or into a `globals.css` custom property — the exemption is scoped to two at-rules, not to the file
+- [x] V9 passes a grouped story file declaring `subcomponents`, passes a component whose story file is named differently from it but sits in the same tier directory, and still fails a component that appears in neither `component` nor `subcomponents` of any story in its tier — coverage is the declaration, not the filename
+- [x] Zero rules reimplement schema checks Phase 2 already owns
+- [ ] The run against the pre-contract project completes without crashing and produces a readable report — pending because the private local project path is intentionally absent from this public repository and was not supplied in the current session
+- [x] The `[V]` list in `docs/design-system-contract.md` and the implemented rule list are one-to-one for V1–V24, verified by counting both; **V25 and V26 are reserved, listed in the contract, and unimplemented until Phase 12** — the count reconciles when Phase 12 lands, and Phase 12's own criteria assert it
 
 ## Risk Assessment
 

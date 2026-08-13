@@ -27,7 +27,9 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | `packages/engine/` | versioned npm package — Storybook preset, token codegen, validator rules, story templates |
 | `packages/engine/src/tokens/` | token schema, colour conversion, ramp generation, and Tailwind theme codegen |
 | `packages/engine/src/preset/` | Storybook main/preview factories and token-derived brand surfaces |
+| `packages/engine/src/validator/` | project snapshot, V1–V24 contract rules, reports, and compliant fixtures |
 | `packages/cli/` | `ds` command — create, adopt, generate, validate, update, migrate, guard |
+| `packages/cli/src/commands/` | command implementations; currently `validate` |
 | `packages/cli/src/env/` | read-only Node, package-manager, git, and workspace detection |
 | `packages/cli/src/ui/` | prompt and reporting boundaries |
 | `dist/` | committed, precompiled toolkit output shipped to users |

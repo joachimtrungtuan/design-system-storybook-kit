@@ -8,5 +8,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "exclude": ["**/*.test.ts", "**/fixtures/**"]
+  "exclude": ["**/*.test.ts", "**/fixtures/**", "**/__fixtures__/**"]
 }

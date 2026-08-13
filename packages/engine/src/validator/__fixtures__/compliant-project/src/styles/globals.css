@@ -1,0 +1,3 @@
+@import url("https://fonts.example.test/css?family=Inter");
+@font-face { font-family: "Inter"; src: url("/inter.woff2"); }
+@import "./tokens.css";

@@ -10,6 +10,7 @@ import { ActionableError, handleCliError } from "./errors.ts";
 import { EXIT_CODES, type ExitCode } from "./exit-codes.ts";
 import { COMMANDS, ROOT_HELP, commandHelp, type Command } from "./help.ts";
 import { assertSupportedNode } from "./env/node.ts";
+import { runValidate } from "./commands/validate.ts";
 
 const MAINTENANCE_COMMANDS = new Set<Command>([
   "adopt",
@@ -69,17 +70,21 @@ export function guardTransientMaintenance(
   }
 }
 
-function parseCommandArgs(command: Command, args: string[]): { help: boolean } {
+function parseCommandArgs(command: Command, args: string[]): { help: boolean; json: boolean } {
   try {
     const parsed = parseArgs({
       args,
       options: {
         help: { type: "boolean", short: "h", default: false },
+        ...(command === "validate" ? { json: { type: "boolean" as const, default: false } } : {}),
       },
       allowPositionals: false,
       strict: true,
     });
-    return { help: parsed.values.help ?? false };
+    return {
+      help: parsed.values.help ?? false,
+      json: command === "validate" && parsed.values.json === true,
+    };
   } catch (error: unknown) {
     if (error instanceof TypeError && "code" in error) {
       throw new ActionableError(
@@ -124,6 +129,7 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<ExitC
   }
 
   guardTransientMaintenance(requested);
+  if (requested === "validate") return runValidate({ json: options.json });
   throw new ActionableError(
     `The '${requested}' command is not implemented yet.`,
     "Use a command implemented by the current development phase.",

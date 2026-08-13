@@ -8,6 +8,7 @@ import { ActionableError, handleCliError } from "./errors.js";
 import { EXIT_CODES } from "./exit-codes.js";
 import { COMMANDS, ROOT_HELP, commandHelp } from "./help.js";
 import { assertSupportedNode } from "./env/node.js";
+import { runValidate } from "./commands/validate.js";
 const MAINTENANCE_COMMANDS = new Set([
     "adopt",
     "generate",
@@ -50,11 +51,15 @@ function parseCommandArgs(command, args) {
             args,
             options: {
                 help: { type: "boolean", short: "h", default: false },
+                ...(command === "validate" ? { json: { type: "boolean", default: false } } : {}),
             },
             allowPositionals: false,
             strict: true,
         });
-        return { help: parsed.values.help ?? false };
+        return {
+            help: parsed.values.help ?? false,
+            json: command === "validate" && parsed.values.json === true,
+        };
     }
     catch (error) {
         if (error instanceof TypeError && "code" in error) {
@@ -86,6 +91,8 @@ export async function run(argv = process.argv.slice(2)) {
         return EXIT_CODES.success;
     }
     guardTransientMaintenance(requested);
+    if (requested === "validate")
+        return runValidate({ json: options.json });
     throw new ActionableError(`The '${requested}' command is not implemented yet.`, "Use a command implemented by the current development phase.", "https://github.com/joachimtrungtuan/story-cli-kit#readme");
 }
 const entryPath = process.argv[1];

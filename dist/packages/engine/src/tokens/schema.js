@@ -2,18 +2,7 @@ import { ActionableError } from "../errors.js";
 import { normalizeHex } from "./color.js";
 export const RAMP_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 const TOKEN_REFERENCE = /^\{([A-Za-z0-9_$-]+(?:\.[A-Za-z0-9_$-]+)+)\}$/u;
-const ALLOWED_TOP_LEVEL_GROUPS = new Set([
-    "color",
-    "typography",
-    "spacing",
-    "radius",
-    "shadow",
-    "motion",
-    "breakpoint",
-    "container",
-    "icon",
-    "zIndex",
-]);
+const TOP_LEVEL_GROUP = /^[a-z][A-Za-z0-9]*$/u;
 const RAMP_PALETTES = new Set(["brand", "secondary", "grey"]);
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -127,8 +116,8 @@ export function parseTokens(input, source = "tokens.json") {
     const root = {};
     const configuration = {};
     for (const key of Object.keys(input).sort()) {
-        if (!key.startsWith("$") && !ALLOWED_TOP_LEVEL_GROUPS.has(key)) {
-            fail(source, `$.${key}`, "Unknown top-level token group", "Use a contract group or prefix non-token configuration with $.");
+        if (!key.startsWith("$") && !TOP_LEVEL_GROUP.test(key)) {
+            fail(source, `$.${key}`, "Unknown top-level token group", "Use a Tailwind namespace or camelCase group, or prefix non-token configuration with $.");
         }
         if (key.startsWith("$")) {
             configuration[key] = parseNode(input[key], source, `$.${key}`, [key]);

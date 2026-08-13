@@ -126,6 +126,10 @@ function serializeValue(leaf) {
 export function generateTokensCss(tokens) {
     const leaves = [];
     const gamutClips = [];
+    const unsupportedGroup = Object.keys(tokens.root).find((group) => !GROUP_ORDER.includes(group));
+    if (unsupportedGroup !== undefined) {
+        throw new ActionableError(`Token group ${unsupportedGroup} has no codegen namespace mapping.`, "Add an explicit codegen mapping before using this token group.", `${tokens.source}#$.${unsupportedGroup}`);
+    }
     for (const group of GROUP_ORDER) {
         const node = tokens.root[group];
         if (node !== undefined)

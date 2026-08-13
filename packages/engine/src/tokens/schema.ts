@@ -26,18 +26,7 @@ export interface ParsedTokens {
 }
 
 const TOKEN_REFERENCE = /^\{([A-Za-z0-9_$-]+(?:\.[A-Za-z0-9_$-]+)+)\}$/u;
-const ALLOWED_TOP_LEVEL_GROUPS = new Set([
-  "color",
-  "typography",
-  "spacing",
-  "radius",
-  "shadow",
-  "motion",
-  "breakpoint",
-  "container",
-  "icon",
-  "zIndex",
-]);
+const TOP_LEVEL_GROUP = /^[a-z][A-Za-z0-9]*$/u;
 const RAMP_PALETTES = new Set(["brand", "secondary", "grey"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -216,12 +205,12 @@ export function parseTokens(input: unknown, source = "tokens.json"): ParsedToken
   const root: TokenObject = {};
   const configuration: TokenObject = {};
   for (const key of Object.keys(input).sort()) {
-    if (!key.startsWith("$") && !ALLOWED_TOP_LEVEL_GROUPS.has(key)) {
+    if (!key.startsWith("$") && !TOP_LEVEL_GROUP.test(key)) {
       fail(
         source,
         `$.${key}`,
         "Unknown top-level token group",
-        "Use a contract group or prefix non-token configuration with $.",
+        "Use a Tailwind namespace or camelCase group, or prefix non-token configuration with $.",
       );
     }
     if (key.startsWith("$")) {

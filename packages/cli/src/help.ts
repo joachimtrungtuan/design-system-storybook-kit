@@ -28,5 +28,10 @@ Options:
   -h, --help  Show help`;
 
 export function commandHelp(command: Command): string {
-  return `Usage:\n  ds ${command} [options]\n\nOptions:\n  -h, --help  Show help`;
+  const details = command === "create"
+    ? "\n  ds create [target]\n\nOptions:\n  --no-install              Skip install and tail validation\n  --package-manager <name>  Use npm, pnpm, or yarn\n  --independent             Create a nested repository when applicable\n  --yes                     Skip target confirmation\n  -h, --help                Show help"
+    : command === "generate"
+      ? "\n  ds generate <tier> <name>\n\nOptions:\n  -h, --help  Show help"
+      : "\n  ds ${command} [options]\n\nOptions:\n  -h, --help  Show help";
+  return `Usage:${details}`;
 }

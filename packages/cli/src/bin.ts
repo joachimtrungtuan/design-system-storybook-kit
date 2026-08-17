@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { ActionableError, handleCliError } from "./errors.ts";
 import { EXIT_CODES, type ExitCode } from "./exit-codes.ts";
 import { COMMANDS, ROOT_HELP, commandHelp, type Command } from "./help.ts";
 import { assertSupportedNode } from "./env/node.ts";
+import { runCreate } from "./commands/create.ts";
+import { runGenerate } from "./commands/generate.ts";
 import { runValidate } from "./commands/validate.ts";
+import type { PackageManager } from "./env/package-manager.ts";
 
 const MAINTENANCE_COMMANDS = new Set<Command>([
   "adopt",
@@ -42,13 +45,53 @@ export function isProjectLocalInstallation(
 ): boolean {
   try {
     const projectRequire = createRequire(resolve(cwd, "package.json"));
-    const localPackageRoot = dirname(
-      projectRequire.resolve("story-cli-kit/package.json"),
-    );
+    const localPackageRoot = resolveInstalledPackageRoot(cwd, projectRequire);
+    if (localPackageRoot === undefined) return false;
     return realpathSync(localPackageRoot) === realpathSync(executionPackageRoot);
   } catch {
     return false;
   }
+}
+
+function resolveInstalledPackageRoot(cwd: string, projectRequire: NodeRequire): string | undefined {
+  for (const specifier of ["story-cli-kit/package.json", "story-cli-kit/preset", "story-cli-kit/preview"]) {
+    let resolved: string;
+    try {
+      resolved = projectRequire.resolve(specifier);
+    } catch {
+      try {
+        resolved = fileURLToPath(
+          import.meta.resolve(specifier, pathToFileURL(resolve(cwd, "package.json")).href),
+        );
+      } catch {
+        continue;
+      }
+    }
+
+    let candidate = dirname(resolved);
+    while (true) {
+      const packageJson = resolve(candidate, "package.json");
+      if (existsSync(packageJson)) {
+        try {
+          const manifest: unknown = JSON.parse(readFileSync(packageJson, "utf8"));
+          if (
+            typeof manifest === "object" &&
+            manifest !== null &&
+            "name" in manifest &&
+            manifest.name === "story-cli-kit"
+          ) {
+            return candidate;
+          }
+        } catch {
+          // Keep walking in case the resolved subpath belongs to a nested package.
+        }
+      }
+      const parent = dirname(candidate);
+      if (parent === candidate) break;
+      candidate = parent;
+    }
+  }
+  return undefined;
 }
 
 export function guardTransientMaintenance(
@@ -70,20 +113,45 @@ export function guardTransientMaintenance(
   }
 }
 
-function parseCommandArgs(command: Command, args: string[]): { help: boolean; json: boolean } {
+interface ParsedCommandArgs {
+  help: boolean;
+  json: boolean;
+  noInstall: boolean;
+  yes: boolean;
+  independent: boolean;
+  packageManager?: string;
+  positionals: string[];
+}
+
+function parseCommandArgs(command: Command, args: string[]): ParsedCommandArgs {
   try {
     const parsed = parseArgs({
       args,
       options: {
         help: { type: "boolean", short: "h", default: false },
         ...(command === "validate" ? { json: { type: "boolean" as const, default: false } } : {}),
+        ...(command === "create"
+          ? {
+              "no-install": { type: "boolean" as const, default: false },
+              yes: { type: "boolean" as const, default: false },
+              independent: { type: "boolean" as const, default: false },
+              "package-manager": { type: "string" as const },
+            }
+          : {}),
       },
-      allowPositionals: false,
+      allowPositionals: command === "create" || command === "generate",
       strict: true,
     });
     return {
       help: parsed.values.help ?? false,
       json: command === "validate" && parsed.values.json === true,
+      noInstall: command === "create" && parsed.values["no-install"] === true,
+      yes: command === "create" && parsed.values.yes === true,
+      independent: command === "create" && parsed.values.independent === true,
+      ...(command === "create" && typeof parsed.values["package-manager"] === "string"
+        ? { packageManager: parsed.values["package-manager"] }
+        : {}),
+      positionals: parsed.positionals,
     };
   } catch (error: unknown) {
     if (error instanceof TypeError && "code" in error) {
@@ -129,6 +197,47 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<ExitC
   }
 
   guardTransientMaintenance(requested);
+  if (requested === "create" && options.positionals.length > 1) {
+    throw new ActionableError(
+      "Create accepts at most one target path.",
+      "Run 'ds create [target]'.",
+      "Command help: ds create --help",
+    );
+  }
+  if (requested === "generate" && options.positionals.length !== 2) {
+    throw new ActionableError(
+      "Generate requires a tier and a kebab-case component name.",
+      "Run 'ds generate <tier> <name>'.",
+      "Command help: ds generate --help",
+    );
+  }
+  if (
+    requested === "create" &&
+    options.packageManager !== undefined &&
+    !["npm", "pnpm", "yarn"].includes(options.packageManager)
+  ) {
+    throw new ActionableError(
+      `Unsupported package manager '${options.packageManager}'.`,
+      "Use npm, pnpm, or yarn.",
+      "Command help: ds create --help",
+    );
+  }
+  if (requested === "create") {
+    const result = await runCreate({
+      ...(options.positionals[0] === undefined ? {} : { target: options.positionals[0] }),
+      noInstall: options.noInstall,
+      yes: options.yes,
+      ...(options.independent ? { independentRepository: true } : {}),
+      ...(options.packageManager === undefined
+        ? {}
+        : { packageManager: options.packageManager as PackageManager }),
+    });
+    return result.exitCode;
+  }
+  if (requested === "generate") {
+    await runGenerate({ tier: options.positionals[0] ?? "", name: options.positionals[1] ?? "" });
+    return EXIT_CODES.success;
+  }
   if (requested === "validate") return runValidate({ json: options.json });
   throw new ActionableError(
     `The '${requested}' command is not implemented yet.`,

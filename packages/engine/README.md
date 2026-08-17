@@ -19,4 +19,7 @@ Components. Those are copied into projects and owned there — see ADR-001 in `d
 
 ## Status
 
-Not implemented. Contract is specified in `docs/design-system-contract.md`; update behaviour in `docs/update-and-migration.md`.
+The token engine, validator, Storybook preset, template materialisation boundary,
+manifest/checksum primitives, and canonical component scaffolds are implemented.
+Update behaviour remains specified in `docs/update-and-migration.md` and is
+delivered in the later update phase.

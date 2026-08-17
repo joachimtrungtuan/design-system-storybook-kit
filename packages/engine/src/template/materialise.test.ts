@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -25,4 +25,17 @@ test("materialiseTemplate renders placeholders and writes current token CSS", as
   const expected = generateTokensCss(parseTokensJson(tokens)).css;
   assert.equal(await readFile(resolve(directory, "src/styles/tokens.css"), "utf8"), expected);
   assert.deepEqual((await validateProject(directory)).violations, []);
+});
+
+test("preserved files are not rendered or rejected for their own placeholder text", async (context) => {
+  const directory = await mkdtemp(resolve(tmpdir(), "story-cli-materialise-preserved-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(resolve(directory, "README.md"), "{{projectName}} is user-owned\n");
+  await materialiseTemplate({
+    destination: directory,
+    projectName: "example-system",
+    toolkitSpecifier: "file:/toolkit",
+    preserveExistingFiles: ["README.md"],
+  });
+  assert.equal(await readFile(resolve(directory, "README.md"), "utf8"), "{{projectName}} is user-owned\n");
 });

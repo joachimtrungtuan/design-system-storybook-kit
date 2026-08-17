@@ -52,6 +52,21 @@ test("execution provenance recognises a package hoisted above a workspace app", 
   assert.equal(isProjectLocalInstallation(app, hoistedPackage), true);
 });
 
+test("execution provenance recognises packages that hide package.json behind exports", () => {
+  const directory = mkdtempSync(join(tmpdir(), "story-cli-kit-exports-"));
+  const localPackage = join(directory, "node_modules", "story-cli-kit");
+  mkdirSync(join(localPackage, "dist"), { recursive: true });
+  writeFileSync(
+    join(localPackage, "package.json"),
+    JSON.stringify({
+      name: "story-cli-kit",
+      exports: { "./preset": "./dist/preset.js" },
+    }) + "\n",
+  );
+  writeFileSync(join(localPackage, "dist", "preset.js"), "export {}\n");
+  assert.equal(isProjectLocalInstallation(directory, localPackage), true);
+});
+
 test("transient maintenance redirects a manifest project to its local command", () => {
   const directory = mkdtempSync(join(tmpdir(), "story-cli-kit-manifest-"));
   mkdirSync(join(directory, ".designsystem"));

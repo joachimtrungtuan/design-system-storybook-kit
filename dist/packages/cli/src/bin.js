@@ -10,6 +10,7 @@ import { COMMANDS, ROOT_HELP, commandHelp } from "./help.js";
 import { assertSupportedNode } from "./env/node.js";
 import { runCreate } from "./commands/create.js";
 import { runGenerate } from "./commands/generate.js";
+import { runUpdate } from "./commands/update.js";
 import { runValidate } from "./commands/validate.js";
 const MAINTENANCE_COMMANDS = new Set([
     "adopt",
@@ -103,6 +104,13 @@ function parseCommandArgs(command, args) {
                         "package-manager": { type: "string" },
                     }
                     : {}),
+                ...(command === "update"
+                    ? {
+                        "dry-run": { type: "boolean", default: false },
+                        "on-conflict": { type: "string" },
+                        to: { type: "string" },
+                    }
+                    : {}),
             },
             allowPositionals: command === "create" || command === "generate",
             strict: true,
@@ -116,6 +124,11 @@ function parseCommandArgs(command, args) {
             ...(command === "create" && typeof parsed.values["package-manager"] === "string"
                 ? { packageManager: parsed.values["package-manager"] }
                 : {}),
+            dryRun: command === "update" && parsed.values["dry-run"] === true,
+            ...(command === "update" && typeof parsed.values["on-conflict"] === "string"
+                ? { onConflict: parsed.values["on-conflict"] }
+                : {}),
+            ...(command === "update" && typeof parsed.values.to === "string" ? { to: parsed.values.to } : {}),
             positionals: parsed.positionals,
         };
     }
@@ -178,6 +191,14 @@ export async function run(argv = process.argv.slice(2)) {
     }
     if (requested === "validate")
         return runValidate({ json: options.json });
+    if (requested === "update") {
+        const result = await runUpdate({
+            dryRun: options.dryRun,
+            ...(options.onConflict === undefined ? {} : { onConflict: options.onConflict }),
+            ...(options.to === undefined ? {} : { to: options.to }),
+        });
+        return result.exitCode;
+    }
     throw new ActionableError(`The '${requested}' command is not implemented yet.`, "Use a command implemented by the current development phase.", "https://github.com/joachimtrungtuan/story-cli-kit#readme");
 }
 const entryPath = process.argv[1];

@@ -16,6 +16,11 @@ async function collectFiles(root, directory, result) {
         }
     }
 }
+export async function listProjectFiles(root) {
+    const result = [];
+    await collectFiles(root, root, result);
+    return result;
+}
 export async function createManifest(options) {
     const files = options.files === undefined ? [] : [...options.files];
     if (options.files === undefined)
@@ -47,9 +52,28 @@ export async function createManifest(options) {
 }
 export async function writeManifest(options) {
     const manifest = await createManifest(options);
-    const path = resolve(options.root, ".designsystem/manifest.json");
-    await mkdir(resolve(options.root, ".designsystem"), { recursive: true });
+    return writeManifestObject(options.root, manifest);
+}
+export async function writeManifestObject(root, manifest) {
+    const path = resolve(root, ".designsystem/manifest.json");
+    await mkdir(resolve(root, ".designsystem"), { recursive: true });
     await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
     return path;
+}
+/**
+ * Post-update rewrite: bumps engineVersion and refreshes the checksum of every
+ * overwritten or newly-written path. Conflicted, user-created and adopt-merged
+ * entries are absent from `updatedFiles` and so pass through untouched.
+ */
+export function rewriteManifestAfterUpdate(options) {
+    const files = { ...options.manifest.files };
+    for (const [path, content] of Object.entries(options.updatedFiles)) {
+        const existing = files[path];
+        files[path] = {
+            sha256: checksumContent(content),
+            ...(existing?.mark === undefined ? {} : { mark: existing.mark }),
+        };
+    }
+    return { ...options.manifest, engineVersion: options.engineVersion, files };
 }
 //# sourceMappingURL=write.js.map

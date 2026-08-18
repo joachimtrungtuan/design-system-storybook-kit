@@ -32,6 +32,8 @@ export function commandHelp(command: Command): string {
     ? "\n  ds create [target]\n\nOptions:\n  --no-install              Skip install and tail validation\n  --package-manager <name>  Use npm, pnpm, or yarn\n  --independent             Create a nested repository when applicable\n  --yes                     Skip target confirmation\n  -h, --help                Show help"
     : command === "generate"
       ? "\n  ds generate <tier> <name>\n\nOptions:\n  -h, --help  Show help"
-      : "\n  ds ${command} [options]\n\nOptions:\n  -h, --help  Show help";
+      : command === "update"
+        ? "\n  ds update\n\nOptions:\n  --dry-run                 Classify and report without writing files or creating a branch\n  --on-conflict <strategy>  Only 'skip' (the default) is implemented\n  --to <version>            Not implemented yet\n  -h, --help                Show help"
+        : `\n  ds ${command} [options]\n\nOptions:\n  -h, --help  Show help`;
   return `Usage:${details}`;
 }

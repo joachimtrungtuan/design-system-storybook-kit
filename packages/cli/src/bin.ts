@@ -12,6 +12,7 @@ import { COMMANDS, ROOT_HELP, commandHelp, type Command } from "./help.ts";
 import { assertSupportedNode } from "./env/node.ts";
 import { runCreate } from "./commands/create.ts";
 import { runGenerate } from "./commands/generate.ts";
+import { runUpdate } from "./commands/update.ts";
 import { runValidate } from "./commands/validate.ts";
 import type { PackageManager } from "./env/package-manager.ts";
 
@@ -120,6 +121,9 @@ interface ParsedCommandArgs {
   yes: boolean;
   independent: boolean;
   packageManager?: string;
+  dryRun: boolean;
+  onConflict?: string;
+  to?: string;
   positionals: string[];
 }
 
@@ -138,6 +142,13 @@ function parseCommandArgs(command: Command, args: string[]): ParsedCommandArgs {
               "package-manager": { type: "string" as const },
             }
           : {}),
+        ...(command === "update"
+          ? {
+              "dry-run": { type: "boolean" as const, default: false },
+              "on-conflict": { type: "string" as const },
+              to: { type: "string" as const },
+            }
+          : {}),
       },
       allowPositionals: command === "create" || command === "generate",
       strict: true,
@@ -151,6 +162,11 @@ function parseCommandArgs(command: Command, args: string[]): ParsedCommandArgs {
       ...(command === "create" && typeof parsed.values["package-manager"] === "string"
         ? { packageManager: parsed.values["package-manager"] }
         : {}),
+      dryRun: command === "update" && parsed.values["dry-run"] === true,
+      ...(command === "update" && typeof parsed.values["on-conflict"] === "string"
+        ? { onConflict: parsed.values["on-conflict"] }
+        : {}),
+      ...(command === "update" && typeof parsed.values.to === "string" ? { to: parsed.values.to } : {}),
       positionals: parsed.positionals,
     };
   } catch (error: unknown) {
@@ -239,6 +255,14 @@ export async function run(argv: string[] = process.argv.slice(2)): Promise<ExitC
     return EXIT_CODES.success;
   }
   if (requested === "validate") return runValidate({ json: options.json });
+  if (requested === "update") {
+    const result = await runUpdate({
+      dryRun: options.dryRun,
+      ...(options.onConflict === undefined ? {} : { onConflict: options.onConflict }),
+      ...(options.to === undefined ? {} : { to: options.to }),
+    });
+    return result.exitCode;
+  }
   throw new ActionableError(
     `The '${requested}' command is not implemented yet.`,
     "Use a command implemented by the current development phase.",

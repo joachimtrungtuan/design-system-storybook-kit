@@ -19,6 +19,12 @@ async function collectFiles(root: string, directory: string, result: string[]): 
   }
 }
 
+export async function listProjectFiles(root: string): Promise<string[]> {
+  const result: string[] = [];
+  await collectFiles(root, root, result);
+  return result;
+}
+
 export interface WriteManifestOptions {
   root: string;
   engineVersion: string;
@@ -62,8 +68,35 @@ export async function createManifest(options: WriteManifestOptions): Promise<Des
 
 export async function writeManifest(options: WriteManifestOptions): Promise<string> {
   const manifest = await createManifest(options);
-  const path = resolve(options.root, ".designsystem/manifest.json");
-  await mkdir(resolve(options.root, ".designsystem"), { recursive: true });
+  return writeManifestObject(options.root, manifest);
+}
+
+export async function writeManifestObject(root: string, manifest: DesignSystemManifest): Promise<string> {
+  const path = resolve(root, ".designsystem/manifest.json");
+  await mkdir(resolve(root, ".designsystem"), { recursive: true });
   await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
   return path;
+}
+
+export interface RewriteManifestAfterUpdateOptions {
+  manifest: DesignSystemManifest;
+  engineVersion: string;
+  updatedFiles: Readonly<Record<string, string>>;
+}
+
+/**
+ * Post-update rewrite: bumps engineVersion and refreshes the checksum of every
+ * overwritten or newly-written path. Conflicted, user-created and adopt-merged
+ * entries are absent from `updatedFiles` and so pass through untouched.
+ */
+export function rewriteManifestAfterUpdate(options: RewriteManifestAfterUpdateOptions): DesignSystemManifest {
+  const files: Record<string, ManifestFile> = { ...options.manifest.files };
+  for (const [path, content] of Object.entries(options.updatedFiles)) {
+    const existing = files[path];
+    files[path] = {
+      sha256: checksumContent(content),
+      ...(existing?.mark === undefined ? {} : { mark: existing.mark }),
+    };
+  }
+  return { ...options.manifest, engineVersion: options.engineVersion, files };
 }

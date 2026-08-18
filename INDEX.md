@@ -28,11 +28,12 @@ Map of this repo. **Location only — no content.** Update in the same change th
 | `packages/engine/src/tokens/` | token schema, colour conversion, ramp generation, and Tailwind theme codegen |
 | `packages/engine/src/preset/` | Storybook main/preview factories and token-derived brand surfaces |
 | `packages/engine/src/template/` | materialisation boundary for the shipped Storybook template |
-| `packages/engine/src/manifest/` | normalized checksums and generated-project manifest read/write primitives |
+| `packages/engine/src/manifest/` | normalized checksums, generated-project manifest read/write primitives, and update-time file classification |
 | `packages/engine/src/scaffold/` | canonical component/story scaffolds and generated tier barrels |
+| `packages/engine/src/update/` | `ds update` pipeline (classify, apply, manifest rewrite) and report formatting |
 | `packages/engine/src/validator/` | project snapshot, V1–V24 contract rules, reports, and compliant fixtures |
 | `packages/cli/` | `ds` command — create, adopt, generate, validate, update, migrate, guard |
-| `packages/cli/src/commands/` | command implementations, including `create`, `generate`, and `validate` |
+| `packages/cli/src/commands/` | command implementations, including `create`, `generate`, `validate`, and `update` |
 | `packages/cli/src/create/` | create planning, prompts, rollback ledger, and apply pipeline |
 | `packages/cli/src/env/` | read-only Node, package-manager, git, and workspace detection |
 | `packages/cli/src/ui/` | prompt and reporting boundaries |

@@ -64,7 +64,7 @@ The stack table in `docs/architecture.md` carries a verification date for a reas
 
 ## Success Criteria
 
-- [ ] `npx github:joachimtrungtuan/story-cli-kit create` succeeds on a clean machine with only Node 24 LTS and npm
+- [ ] `npx github:joachimtrungtuan/story-cli-kit create` succeeds on a clean machine with only Node 24 LTS and npm — deferred from Phase 6 until the public repository and `v1.0.0` tag exist
 - [ ] `npm pack --dry-run` lists exactly the five `files` entries and nothing else, asserted as a literal list — a `migrate` run in an installed project finds its notes, and the shipped skill and contract docs are present
 - [ ] CI fails on an introduced type error and on a failing test — verified by introducing each once
 - [ ] CI's end-to-end job creates a project and validates it clean

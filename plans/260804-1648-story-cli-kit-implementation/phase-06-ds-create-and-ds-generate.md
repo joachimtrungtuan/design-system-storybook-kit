@@ -1,6 +1,6 @@
 ---
 title: "Phase 6: ds create and ds generate"
-status: in-progress
+status: completed
 priority: P1
 effort: "3-4d"
 dependencies: [5]
@@ -103,24 +103,30 @@ Accepted cost: a hand-edited barrel — a custom re-export alias, say — is ove
 
 ## Success Criteria
 
-- [ ] `create` into an empty directory asks no git-ancestry or workspace question
-- [ ] **`create` into a directory holding only a `README.md`, a `LICENSE` and a `.git` succeeds** — non-emptiness alone never refuses
+- [x] `create` into an empty directory asks no git-ancestry or workspace question
+- [x] **`create` into a directory holding only a `README.md`, a `LICENSE` and a `.git` succeeds** — non-emptiness alone never refuses
 - [x] **`create` into a directory holding an existing `src/` refuses**, names `src/` as the collision, points at `ds adopt`, and writes nothing
-- [ ] `create` inside an existing repository asks once, defaults to the enclosing repository, and prints the parent instruction when independent is chosen
-- [ ] `create` inside a workspace prints the registration line and edits no parent file
-- [ ] Ctrl-C at every prompt in turn leaves no created path behind — verified per prompt
-- [ ] A simulated failure at each apply stage rolls back cleanly
-- [ ] End-to-end run on npm-only succeeds; no attempt to install a package manager
-- [ ] After `create`: dependencies installed, Vite starts, Storybook starts, `ds validate` exits zero
+- [x] `create` inside an existing repository asks once, defaults to the enclosing repository, and prints the parent instruction when independent is chosen
+- [x] `create` inside a workspace prints the registration line and edits no parent file
+- [x] Ctrl-C at every prompt in turn leaves no created path behind — verified per prompt
+- [x] A simulated failure at each apply stage rolls back cleanly
+- [x] End-to-end generated-project run with the local toolkit specifier on an npm-only profile succeeds; package-manager detection makes no attempt to install a package manager. The real GitHub dependency path is a Phase 10 release criterion
+- [x] After `create` with the local toolkit specifier: dependencies install, Vite starts, Storybook starts, and `ds validate` exits zero. The unmodified GitHub dependency path remains deferred to Phase 10
 - [x] Manifest checksums match the files actually on disk, verified by recomputation, and the manifest carries `appliedMigrations: []` from creation
 - [x] **`create --no-install` reports that install and validation were both skipped and prints both commands** — it never runs a tail step that silently does nothing
-- [ ] Missing git produces an instruction naming where to get it, with no partial project written
-- [ ] **Unset `user.email` is refused in preflight**, naming the two `git config` commands, with nothing written — not discovered at commit time with the project already on disk
+- [x] Missing git produces an instruction naming where to get it, with no partial project written
+- [x] **Unset `user.email` is refused in preflight**, naming the two `git config` commands, with nothing written — not discovered at commit time with the project already on disk
 - [x] **A pre-existing file at a template path survives a cancelled `create` byte-identical** — the ledger's created-vs-overwrote distinction, tested directly
-- [ ] Committing into an enclosing repository refuses a dirty tree and stages only ledger paths — the user's unrelated work in flight is never swept into the scaffold commit
+- [x] Committing into an enclosing repository refuses a dirty tree and stages only ledger paths — the user's unrelated work in flight is never swept into the scaffold commit
 - [x] `package.json` is rendered from placeholders, and its manifest entry is marked *rendered* and matches the bytes on disk
-- [ ] `ds generate atoms my-thing` produces a component, a regenerated barrel and a story that all pass validation — **and a subsequent `ds update` classifies the barrel as generated, never as conflicted**
-- [ ] The barrel written by `create` and the barrel written by `generate` come from the same helper — byte-identical for the same directory contents
+- [x] `ds generate atoms my-thing` produces a component, a regenerated barrel and a story that all pass validation. The subsequent `ds update` classification assertion is owned by Phase 7
+- [x] The barrel written by `create` and the barrel written by `generate` come from the same helper — byte-identical for the same directory contents
+
+## Deferred Acceptance Ownership
+
+- **Phase 10:** run the unmodified public GitHub install after the repository and `v1.0.0` tag exist. Local file-spec installation proves generated-project behavior but is not evidence for GitHub distribution.
+- **Phase 7:** prove that a barrel changed by `ds generate` is classified as generated and never conflicted by `ds update`.
+- **Review:** local-only review evidence is accepted for Phase 6. No independent verdict is claimed because the available destination was not trusted for the private uncommitted diff.
 
 ## Risk Assessment
 

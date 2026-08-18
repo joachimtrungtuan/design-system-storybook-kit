@@ -97,7 +97,7 @@ With no `--to`, no fetch happens and the installed copy is the target. `docs/upd
 
 ## Success Criteria
 
-- [ ] Classification correct for all six categories — new, unmodified, conflicted, user-created, generated, adopt-merged — including the reverted-file and locally-deleted edge cases
+- [ ] Classification correct for all six categories — new, unmodified, conflicted, user-created, generated, adopt-merged — including the reverted-file and locally-deleted edge cases; specifically, a barrel changed by `ds generate` is generated and never conflicted
 - [ ] `--dry-run` writes nothing **and creates no branch** — verified by comparing the tree hash *and* `git branch --list` before and after. A tree hash alone would pass a run that created a branch and regenerated `tokens.css`
 - [ ] After a successful update the manifest describes the **new** version: `engineVersion` bumped, overwritten checksums current, conflicted / user-created / adopt-merged entries untouched
 - [ ] Running `update` twice against the same target classifies nothing as conflicted on the second run — the assertion that proves the manifest rewrite actually happened

@@ -14,7 +14,7 @@ created: 2026-08-04
 
 `docs/` is complete and current: requirements, contract, architecture and fourteen ADRs all decided, stack versions verified 2026-08-04. Phases 1, 2 and 4 established the precompiled package and CLI shell, deterministic token engine, and Storybook preset. Phase 3's validator implementation is complete and independently verified, including its private pre-contract-project measurement. Phase 5 established the neutral, materialised template. The remaining command implementations follow. This plan continues through generated-project guardrails and all seven `ds` commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`), plus the release path that makes `npx github:joachimtrungtuan/story-cli-kit` work.
 
-**Progress:** 57/137 success criteria complete (42%): Phases 1–5 are complete. Phase 6 is in progress with implementation landed; real npm installation, installed CLI validation, and production builds are evidenced, while dev-server startup, prompt-coverage, and full failure-matrix verification remain pending. Phases 7–12 remain pending.
+**Progress:** 70/137 success criteria complete (51%): Phases 1–6 are complete. Phase 6 is accepted from local npm-only installation, installed CLI validation, production builds, Vite/Storybook server probes, conditional prompt coverage, full prompt-cancel boundaries, workspace reporting, nested-repository guidance, and the apply-stage failure matrix. The public GitHub install is deferred to Phase 10, the generated-barrel update assertion is owned by Phase 7, and local-only review evidence is accepted without claiming an independent verdict. Phases 7–12 remain pending.
 
 The plan implements the docs. It does not re-decide them. Where implementation reveals that a doc is silent or self-contradictory, that is surfaced to the maintainer rather than resolved silently; [Decisions this plan owns](#decisions-this-plan-owns) records every such resolution, and [Open items](#open-items) records the ones still outstanding.
 
@@ -50,7 +50,7 @@ The plan implements the docs. It does not re-decide them. Where implementation r
 | 4 | [Storybook preset](./phase-04-storybook-preset.md) | 1, 2 | Completed |
 | 3 | [Validator](./phase-03-validator.md) | 1, 2, 4 | Completed |
 | 5 | [Neutral template](./phase-05-neutral-template.md) | 2, 3, 4 | Completed |
-| 6 | [`ds create` and `ds generate`](./phase-06-ds-create-and-ds-generate.md) | 5 | In progress — 5/18 verified |
+| 6 | [`ds create` and `ds generate`](./phase-06-ds-create-and-ds-generate.md) | 5 | Completed |
 | 7 | [`ds update`](./phase-07-ds-update.md) | 6 | Pending |
 | 9 | [`ds adopt`](./phase-09-ds-adopt.md) | 5, 6, 7 | Pending |
 | 12 | [Generated-project guardrails](./phase-12-generated-project-guardrails.md) | 5, 6, 7 | Pending |

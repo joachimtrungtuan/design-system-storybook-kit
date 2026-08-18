@@ -1,4 +1,4 @@
-import { selectPrompt, textPrompt, type Rollback } from "../ui/prompts.ts";
+import { confirmPrompt, selectPrompt, textPrompt, type Rollback } from "../ui/prompts.ts";
 import type { GitEnvironment } from "../env/git.ts";
 
 export interface CreatePromptAnswers {
@@ -6,13 +6,22 @@ export interface CreatePromptAnswers {
   independentRepository?: boolean;
 }
 
+export interface CreatePromptDependencies {
+  text?: typeof textPrompt;
+  select?: typeof selectPrompt;
+  confirm?: typeof confirmPrompt;
+}
+
 export async function collectCreatePromptAnswers(options: {
   target?: string;
   independentRepository?: boolean;
   git: GitEnvironment;
   rollback: Rollback;
+  dependencies?: CreatePromptDependencies;
 }): Promise<CreatePromptAnswers> {
-  const target = options.target ?? await textPrompt(
+  const text = options.dependencies?.text ?? textPrompt;
+  const select = options.dependencies?.select ?? selectPrompt;
+  const target = options.target ?? await text(
     "Where should the design-system project be created?",
     options.rollback,
     "design-system",
@@ -20,7 +29,7 @@ export async function collectCreatePromptAnswers(options: {
 
   let independentRepository = options.independentRepository;
   if (independentRepository === undefined && options.git.insideRepository) {
-    independentRepository = await selectPrompt(
+    independentRepository = await select(
       "This target is inside an existing repository. Where should its history live?",
       [
         {

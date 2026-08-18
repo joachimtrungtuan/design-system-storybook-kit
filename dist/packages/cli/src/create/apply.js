@@ -35,6 +35,9 @@ export async function applyCreate(options) {
     const git = dependencies.git ?? runGit;
     const install = dependencies.install ?? runInstall;
     const validator = dependencies.validate ?? validate;
+    const materialise = dependencies.materialise ?? materialiseTemplate;
+    const regenerateBarrels = dependencies.regenerateAllTierBarrels ?? regenerateAllTierBarrels;
+    const manifestWriter = dependencies.createManifest ?? createManifest;
     const ledger = new RollbackLedger(options.plan.target);
     const renderedFiles = new Set();
     let initialisedRepository = false;
@@ -43,7 +46,7 @@ export async function applyCreate(options) {
     let stagedPaths = [];
     try {
         await ledger.ensureDirectory(options.plan.target);
-        await materialiseTemplate({
+        await materialise({
             destination: options.plan.target,
             projectName: options.plan.projectName,
             packageManager: options.plan.packageManager,
@@ -58,8 +61,8 @@ export async function applyCreate(options) {
                 await ledger.write(path, content);
             },
         });
-        await regenerateAllTierBarrels(options.plan.target, (path, content) => ledger.write(path, content));
-        const manifest = await createManifest({
+        await regenerateBarrels(options.plan.target, (path, content) => ledger.write(path, content));
+        const manifest = await manifestWriter({
             root: options.plan.target,
             engineVersion: options.plan.engineVersion,
             createdWith: options.plan.engineVersion,

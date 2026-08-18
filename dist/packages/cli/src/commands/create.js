@@ -20,13 +20,16 @@ async function packageVersion(root) {
 export async function runCreate(options = {}) {
     const cwd = resolve(options.cwd ?? process.cwd());
     const root = await toolkitRoot();
-    const targetInput = options.target ?? await textPrompt("Where should the design-system project be created?", async () => undefined, "design-system");
+    const text = options.promptDependencies?.text ?? textPrompt;
+    const confirm = options.promptDependencies?.confirm ?? confirmPrompt;
+    const targetInput = options.target ?? await text("Where should the design-system project be created?", async () => undefined, "design-system");
     const initialGit = inspectGit(resolve(cwd, targetInput));
     const promptAnswers = await collectCreatePromptAnswers({
         target: targetInput,
         ...(options.independentRepository === undefined ? {} : { independentRepository: options.independentRepository }),
         git: initialGit,
         rollback: async () => undefined,
+        ...(options.promptDependencies === undefined ? {} : { dependencies: options.promptDependencies }),
     });
     const target = resolve(cwd, promptAnswers.target);
     const git = inspectGit(target);
@@ -52,7 +55,7 @@ export async function runCreate(options = {}) {
         environment,
     });
     if (options.yes !== true) {
-        const confirmed = await confirmPrompt(`Create the project at ${plan.target}?`, async () => undefined, true);
+        const confirmed = await confirm(`Create the project at ${plan.target}?`, async () => undefined, true);
         if (!confirmed)
             throw new PromptCancelledError();
     }

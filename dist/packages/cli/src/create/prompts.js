@@ -1,9 +1,11 @@
-import { selectPrompt, textPrompt } from "../ui/prompts.js";
+import { confirmPrompt, selectPrompt, textPrompt } from "../ui/prompts.js";
 export async function collectCreatePromptAnswers(options) {
-    const target = options.target ?? await textPrompt("Where should the design-system project be created?", options.rollback, "design-system");
+    const text = options.dependencies?.text ?? textPrompt;
+    const select = options.dependencies?.select ?? selectPrompt;
+    const target = options.target ?? await text("Where should the design-system project be created?", options.rollback, "design-system");
     let independentRepository = options.independentRepository;
     if (independentRepository === undefined && options.git.insideRepository) {
-        independentRepository = await selectPrompt("This target is inside an existing repository. Where should its history live?", [
+        independentRepository = await select("This target is inside an existing repository. Where should its history live?", [
             {
                 value: false,
                 label: "Use the enclosing repository",

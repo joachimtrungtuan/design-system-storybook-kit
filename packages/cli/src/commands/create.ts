@@ -9,7 +9,7 @@ import { findParentWorkspace } from "../env/workspace.ts";
 import { PromptCancelledError } from "../errors.ts";
 import { listTemplateDirectories, listTemplateFiles, toolkitRoot } from "../../../engine/src/template/materialise.ts";
 import { applyCreate, type CreateApplyDependencies, type CreateApplyResult } from "../create/apply.ts";
-import { collectCreatePromptAnswers } from "../create/prompts.ts";
+import { collectCreatePromptAnswers, type CreatePromptDependencies } from "../create/prompts.ts";
 import { buildCreatePlan } from "../create/plan.ts";
 
 export interface CreateCommandOptions {
@@ -21,6 +21,7 @@ export interface CreateCommandOptions {
   independentRepository?: boolean;
   yes?: boolean;
   toolkitSpecifier?: string;
+  promptDependencies?: CreatePromptDependencies;
   reporter?: Reporter;
   dependencies?: CreateApplyDependencies;
 }
@@ -36,7 +37,9 @@ async function packageVersion(root: string): Promise<string> {
 export async function runCreate(options: CreateCommandOptions = {}): Promise<CreateApplyResult> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const root = await toolkitRoot();
-  const targetInput = options.target ?? await textPrompt(
+  const text = options.promptDependencies?.text ?? textPrompt;
+  const confirm = options.promptDependencies?.confirm ?? confirmPrompt;
+  const targetInput = options.target ?? await text(
     "Where should the design-system project be created?",
     async () => undefined,
     "design-system",
@@ -47,6 +50,7 @@ export async function runCreate(options: CreateCommandOptions = {}): Promise<Cre
     ...(options.independentRepository === undefined ? {} : { independentRepository: options.independentRepository }),
     git: initialGit,
     rollback: async () => undefined,
+    ...(options.promptDependencies === undefined ? {} : { dependencies: options.promptDependencies }),
   });
   const target = resolve(cwd, promptAnswers.target);
   const git = inspectGit(target);
@@ -73,7 +77,7 @@ export async function runCreate(options: CreateCommandOptions = {}): Promise<Cre
   });
 
   if (options.yes !== true) {
-    const confirmed = await confirmPrompt(
+    const confirmed = await confirm(
       `Create the project at ${plan.target}?`,
       async () => undefined,
       true,

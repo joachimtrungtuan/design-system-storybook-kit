@@ -1,3 +1,6 @@
+import { createManifest } from "../../../engine/src/manifest/index.ts";
+import { regenerateAllTierBarrels } from "../../../engine/src/scaffold/index.ts";
+import { materialiseTemplate } from "../../../engine/src/template/materialise.ts";
 import { type ExitCode } from "../exit-codes.ts";
 import type { Reporter } from "../ui/report.ts";
 import type { CreatePlan } from "./plan.ts";
@@ -8,6 +11,9 @@ export interface CreateApplyDependencies {
     git?: GitRunner;
     install?: Installer;
     validate?: Validator;
+    materialise?: typeof materialiseTemplate;
+    regenerateAllTierBarrels?: typeof regenerateAllTierBarrels;
+    createManifest?: typeof createManifest;
 }
 export interface CreateApplyOptions {
     plan: CreatePlan;

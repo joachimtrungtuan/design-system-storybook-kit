@@ -8,7 +8,7 @@ import test from "node:test";
 import { toolkitRoot } from "../../../engine/src/template/materialise.ts";
 import { ActionableError } from "../errors.ts";
 import { EXIT_CODES } from "../exit-codes.ts";
-import { applyCreate } from "./apply.ts";
+import { applyCreate, type CreateApplyDependencies } from "./apply.ts";
 import type { CreatePlan } from "./plan.ts";
 
 function plan(target: string, noInstall = true, overrides: Partial<CreatePlan> = {}): CreatePlan {
@@ -81,6 +81,68 @@ test("a failure before commit rolls back only ledger paths", async (context) => 
   await assert.rejects(readFile(resolve(target, "package.json"), "utf8"));
 });
 
+test("pre-commit failures at each apply stage roll back generated files", async (context) => {
+  const failures: Record<string, CreateApplyDependencies> = {
+    materialisation: {
+      materialise: async () => {
+        throw new Error("materialisation failed");
+      },
+    },
+    codegen: {
+      regenerateAllTierBarrels: async () => {
+        throw new Error("codegen failed");
+      },
+    },
+    manifest: {
+      createManifest: async () => {
+        throw new Error("manifest failed");
+      },
+    },
+    staging: {
+      git: (_cwd, args) => {
+        if (args[0] === "add") throw new Error("staging failed");
+      },
+    },
+  };
+
+  for (const [stage, dependencies] of Object.entries(failures)) {
+    const target = await mkdtemp(resolve(tmpdir(), `story-cli-create-${stage}-`));
+    context.after(() => rm(target, { recursive: true, force: true }));
+
+    await assert.rejects(
+      applyCreate({
+        plan: plan(target),
+        toolkitRoot: await toolkitRoot(),
+        dependencies,
+      }),
+    );
+
+    await assert.rejects(readFile(resolve(target, "package.json"), "utf8"));
+    await assert.rejects(readFile(resolve(target, ".designsystem/manifest.json"), "utf8"));
+  }
+});
+
+test("rollback restores a pre-existing file when an apply stage overwrote it", async (context) => {
+  const target = await mkdtemp(resolve(tmpdir(), "story-cli-create-restore-"));
+  context.after(() => rm(target, { recursive: true, force: true }));
+  const original = '{"name":"user-owned"}\n';
+  await writeFile(resolve(target, "package.json"), original);
+
+  await assert.rejects(
+    applyCreate({
+      plan: plan(target),
+      toolkitRoot: await toolkitRoot(),
+      dependencies: {
+        git: (_cwd, args) => {
+          if (args[0] === "commit") throw new Error("commit failed");
+        },
+      },
+    }),
+  );
+
+  assert.equal(await readFile(resolve(target, "package.json"), "utf8"), original);
+});
+
 test("enclosing commit failure resets only the scaffold paths it staged", async (context) => {
   const parent = await mkdtemp(resolve(tmpdir(), "story-cli-create-parent-"));
   context.after(() => rm(parent, { recursive: true, force: true }));
@@ -143,4 +205,75 @@ test("install failure keeps the committed scaffold and gives a retry instruction
     (error: unknown) => error instanceof ActionableError && error.message.includes("installation failed"),
   );
   assert.match(await readFile(resolve(target, "package.json"), "utf8"), /story-cli-kit/u);
+});
+
+test("workspace registration is reported without editing the parent declaration", async (context) => {
+  const parent = await mkdtemp(resolve(tmpdir(), "story-cli-create-workspace-"));
+  context.after(() => rm(parent, { recursive: true, force: true }));
+  const target = resolve(parent, "packages/design-system");
+  const declarationFile = resolve(parent, "package.json");
+  const original = '{"workspaces":[]}\n';
+  await writeFile(declarationFile, original);
+  const messages: string[] = [];
+
+  await applyCreate({
+    plan: plan(target, true, {
+      workspace: {
+        kind: "package-json",
+        root: parent,
+        declarationFile,
+        registration: '"packages/design-system"',
+      },
+    }),
+    toolkitRoot: await toolkitRoot(),
+    reporter: { info: (message) => messages.push(message), warn: (message) => messages.push(message) },
+    dependencies: { git: () => undefined },
+  });
+
+  assert.equal(await readFile(declarationFile, "utf8"), original);
+  assert.ok(messages.some((message) => message.includes('"packages/design-system"')));
+});
+
+test("independent nested repositories report the parent integration instruction", async (context) => {
+  const parent = await mkdtemp(resolve(tmpdir(), "story-cli-create-independent-"));
+  context.after(() => rm(parent, { recursive: true, force: true }));
+  const target = resolve(parent, "packages/design-system");
+  const messages: string[] = [];
+
+  await applyCreate({
+    plan: plan(target, true, {
+      repositoryMode: "independent",
+      repositoryRoot: target,
+      parentRepositoryRoot: parent,
+    }),
+    toolkitRoot: await toolkitRoot(),
+    reporter: { info: (message) => messages.push(message), warn: (message) => messages.push(message) },
+    dependencies: { git: () => undefined },
+  });
+
+  assert.ok(messages.some((message) => message.includes("as a submodule")));
+  assert.ok(messages.some((message) => message.includes(".gitignore")));
+});
+
+test("validation failure keeps the committed scaffold for inspection", async (context) => {
+  const target = await mkdtemp(resolve(tmpdir(), "story-cli-create-validate-"));
+  context.after(() => rm(target, { recursive: true, force: true }));
+  const calls: string[][] = [];
+
+  await assert.rejects(
+    applyCreate({
+      plan: plan(target, false),
+      toolkitRoot: await toolkitRoot(),
+      dependencies: {
+        git: (_cwd, args) => calls.push([...args]),
+        install: async () => undefined,
+        validate: async () => EXIT_CODES.validationFailure,
+      },
+    }),
+    (error: unknown) => error instanceof ActionableError && error.message.includes("did not pass ds validate"),
+  );
+
+  assert.ok(calls.some((args) => args[0] === "commit"));
+  assert.match(await readFile(resolve(target, "package.json"), "utf8"), /story-cli-kit/u);
+  assert.ok(await readFile(resolve(target, ".designsystem/manifest.json"), "utf8"));
 });

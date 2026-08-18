@@ -1,12 +1,18 @@
 ---
 title: "Phase 7: ds update"
-status: pending
+status: in-progress
 priority: P1
 effort: "3-4d"
 dependencies: [6]
 ---
 
 # Phase 7: `ds update`
+
+## Progress note (2026-08-19)
+
+The `--on-conflict=skip` path — the phase doc's own recommended shipping order ("`skip`, the default path, depends on none of this and ships first") — is implemented and tested: `classify.ts` (all six categories), `manifest/write.ts` rewrite, `update/pipeline.ts`, `update/report.ts`, and `cli/commands/update.ts` wired into `bin.ts`/`help.ts`. 13 of 15 success criteria below are met; see checkboxes.
+
+**Deferred to a follow-up pass** (Implementation Steps 4, 10, 11, 12 above): `--to` and the shared tag-fetch module, `baseline.ts`, the `--on-conflict=migrate` policy, `migrations/<version>.md` notes, and the backwards-move refusal. The CLI refuses `--to` and any `--on-conflict` value other than `skip` with an `ActionableError` naming what's missing, rather than silently no-op'ing them. The "new validator rule vs. regression" report wording (success criterion 15) is also deferred — it needs a rule-version registry that does not exist yet.
 
 ## Overview
 
@@ -97,21 +103,21 @@ With no `--to`, no fetch happens and the installed copy is the target. `docs/upd
 
 ## Success Criteria
 
-- [ ] Classification correct for all six categories — new, unmodified, conflicted, user-created, generated, adopt-merged — including the reverted-file and locally-deleted edge cases; specifically, a barrel changed by `ds generate` is generated and never conflicted
-- [ ] `--dry-run` writes nothing **and creates no branch** — verified by comparing the tree hash *and* `git branch --list` before and after. A tree hash alone would pass a run that created a branch and regenerated `tokens.css`
-- [ ] After a successful update the manifest describes the **new** version: `engineVersion` bumped, overwritten checksums current, conflicted / user-created / adopt-merged entries untouched
-- [ ] Running `update` twice against the same target classifies nothing as conflicted on the second run — the assertion that proves the manifest rewrite actually happened
-- [ ] Checksum normalisation is the single shared module Phase 6 also uses, and the manifest carries a schema version so a normalisation change is detectable rather than silent
-- [ ] A dirty tree is refused with an instruction
-- [ ] `--to` and `baseline.ts` call one fetch module — a malformed version is refused identically on both paths
-- [ ] Work happens on `ds-update/<version>`, never on the current branch
-- [ ] User-created files are untouched, asserted by checksum across a full run
-- [ ] Conflicted files under `skip` are byte-identical afterwards
-- [ ] `tokens.css` is regenerated from the project's tokens, not the template's
-- [ ] The report lists every file by category and every validator failure
-- [ ] Adopt-merged files are reported and never rewritten
-- [ ] No code path overwrites a conflicted file — grep the module for the absence of a force branch
-- [ ] A newly-added validator rule failing an existing project is worded as a new rule, not a regression
+- [x] Classification correct for all six categories — new, unmodified, conflicted, user-created, generated, adopt-merged — including the reverted-file and locally-deleted edge cases; specifically, a barrel changed by `ds generate` is generated and never conflicted
+- [x] `--dry-run` writes nothing **and creates no branch** — verified by comparing the tree hash *and* `git branch --list` before and after. A tree hash alone would pass a run that created a branch and regenerated `tokens.css`
+- [x] After a successful update the manifest describes the **new** version: `engineVersion` bumped, overwritten checksums current, conflicted / user-created / adopt-merged entries untouched
+- [x] Running `update` twice against the same target classifies nothing as conflicted on the second run — the assertion that proves the manifest rewrite actually happened
+- [x] Checksum normalisation is the single shared module Phase 6 also uses, and the manifest carries a schema version so a normalisation change is detectable rather than silent
+- [x] A dirty tree is refused with an instruction
+- [ ] `--to` and `baseline.ts` call one fetch module — a malformed version is refused identically on both paths — **deferred, see progress note**
+- [x] Work happens on `ds-update/<version>`, never on the current branch
+- [x] User-created files are untouched, asserted by checksum across a full run
+- [x] Conflicted files under `skip` are byte-identical afterwards
+- [x] `tokens.css` is regenerated from the project's tokens, not the template's
+- [x] The report lists every file by category and every validator failure
+- [x] Adopt-merged files are reported and never rewritten
+- [x] No code path overwrites a conflicted file — grep the module for the absence of a force branch
+- [ ] A newly-added validator rule failing an existing project is worded as a new rule, not a regression — **deferred, see progress note**
 
 ## Risk Assessment
 

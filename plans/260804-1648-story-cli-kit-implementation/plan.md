@@ -14,7 +14,7 @@ created: 2026-08-04
 
 `docs/` is complete and current: requirements, contract, architecture and fourteen ADRs all decided, stack versions verified 2026-08-04. Phases 1, 2 and 4 established the precompiled package and CLI shell, deterministic token engine, and Storybook preset. Phase 3's validator implementation is complete and independently verified, including its private pre-contract-project measurement. Phase 5 established the neutral, materialised template. The remaining command implementations follow. This plan continues through generated-project guardrails and all seven `ds` commands (`create`, `adopt`, `generate`, `validate`, `update`, `migrate`, `guard`), plus the release path that makes `npx github:joachimtrungtuan/story-cli-kit` work.
 
-**Progress:** 70/137 success criteria complete (51%): Phases 1–6 are complete. Phase 6 is accepted from local npm-only installation, installed CLI validation, production builds, Vite/Storybook server probes, conditional prompt coverage, full prompt-cancel boundaries, workspace reporting, nested-repository guidance, and the apply-stage failure matrix. The public GitHub install is deferred to Phase 10, the generated-barrel update assertion is owned by Phase 7, and local-only review evidence is accepted without claiming an independent verdict. Phases 7–12 remain pending.
+**Progress:** 83/137 success criteria complete (61%): Phases 1–6 are complete. Phase 6 is accepted from local npm-only installation, installed CLI validation, production builds, Vite/Storybook server probes, conditional prompt coverage, full prompt-cancel boundaries, workspace reporting, nested-repository guidance, and the apply-stage failure matrix. The public GitHub install is deferred to Phase 10, and local-only review evidence is accepted without claiming an independent verdict. Phase 7 is in progress: the `--on-conflict=skip` path (classification, manifest rewrite, apply, report, branch preflight) ships with 13/15 of its success criteria met; `--to`/`baseline.ts`/`--on-conflict=migrate`/migration notes and the new-rule-vs-regression report wording are deferred to a follow-up pass on the same phase. Phases 9, 12, 11, 10, 8 remain pending.
 
 The plan implements the docs. It does not re-decide them. Where implementation reveals that a doc is silent or self-contradictory, that is surfaced to the maintainer rather than resolved silently; [Decisions this plan owns](#decisions-this-plan-owns) records every such resolution, and [Open items](#open-items) records the ones still outstanding.
 
@@ -51,7 +51,7 @@ The plan implements the docs. It does not re-decide them. Where implementation r
 | 3 | [Validator](./phase-03-validator.md) | 1, 2, 4 | Completed |
 | 5 | [Neutral template](./phase-05-neutral-template.md) | 2, 3, 4 | Completed |
 | 6 | [`ds create` and `ds generate`](./phase-06-ds-create-and-ds-generate.md) | 5 | Completed |
-| 7 | [`ds update`](./phase-07-ds-update.md) | 6 | Pending |
+| 7 | [`ds update`](./phase-07-ds-update.md) | 6 | In progress — `--on-conflict=skip` shipped, `--to`/`migrate`/`baseline.ts` deferred |
 | 9 | [`ds adopt`](./phase-09-ds-adopt.md) | 5, 6, 7 | Pending |
 | 12 | [Generated-project guardrails](./phase-12-generated-project-guardrails.md) | 5, 6, 7 | Pending |
 | 11 | [Agent skill and the `[S]` rules](./phase-11-agent-skill-and-semantic-rules.md) | 3, 5, 6, 12 | Pending |
